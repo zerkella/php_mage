@@ -7,12 +7,6 @@
 	 This is used by PHP to check extension compatibility with core.
 	*/
 	#define PHP_COMPILER_ID  "VC9"
-
-	/*
-	 Disable warning in Win, then putchar and getchar imported in one place and exported in another.
-	 If you know, how to properly deal with that - please, inform me.
-	*/
-	#pragma warning( disable:4273 )
 #endif
 
 #include "php.h"
