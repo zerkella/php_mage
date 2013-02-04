@@ -1,0 +1,123 @@
+1. Install Apache compiled with VC9 (Visual Studion 2008). It can be got at Apache Lo
+http://www.apachelounge.com/
+
+
+2. Install PHP with thread safe VC9
+
+
+3. Download Windows Binaries for your version of PHP
+http://windows.php.net/download/
+
+
+4. Start Project in VC
+Open up Visual Studio C++ express 2008 and create a new project. This is accomplished via "File -> New Project" or "New Project" on the start page.
+Select Win32 Project and enter a name.
+Click the "next" button and it will bring you to a new form with the title of "Win32 Application Wizard - Introduction Name of project. 
+Now make sure under the heading "Application Type" that the DLL is selected and Empty Project under "Additional Options" is also selected.
+
+
+5. Create Simple C++ file
+Either click on Source Files under your project and go Right Click -> Add -> New Item. Select "C++ file" and enter a name. ALWAYS USE .c AS EXTENSION FOR THE FILE NAME. 
+Otherwise there will be issues with compilation - non-consistent declaration of getwchar/putwchar, inability to have several files which use "php.h", etc.
+
+6. Additional Directories
+We need to add some "Additional Directories" so that our IDE Visual Studio C++ can include and use methods / functions inside our Php extension. 
+To navigate to Properties, either Right click <Name of your project> -> Properties , or Project -> Properties.
+
+Now navigate to C/C++ -> General -> Additional Include Directories. Now select the arrow to the right. It's a dropdown box -> Edit Items. Now a screen titled Additional Include Directories will come up. 
+To the far top right, there is a buttons panel, to the button to the left The file button, Click it, now add in the following directories from PHP source, one by one Click the file icon for every directory given
+
+<php_source>\
+<php_source>\main
+<php_source>\TSRM
+<php_source>\win32
+<php_source>\Zend
+
+It does not matter in which order you implement into the Additional Include Directories field
+
+Okay, we have added the Additional Directories so that we may use methods / functions from Php and Zend.
+
+
+7. PreProcessor Directives
+
+The following directives will tell our build environment And Php and Zend that we want to configure our DLL with Php and Zend Windows 32-bit configuration. We also tell that the Zend debugger is set to off.
+To add the directives, please navigate to properties and click on C/C++ -> PreProcessor -> PreProcessor Directives and add the directives.
+
+PHP_WIN32
+ZEND_WIN32
+ZTS=1
+ZEND_DEBUG=0
+
+
+8. Linker - Additional Library Directories and Dependencies
+
+Navigate to Properties -> Linker -> General -> Additional Library Directories and add the following to it (path to the working PHP version on you comp /dev folder).
+
+<path to PHP>\dev\
+
+Now, to the dependencies. This will add the file that we need. It finds the file in the above directory and creates a dependency to it.
+
+Navigate to Properties -> Linker -> Input -> Additional Dependencies and add the following to it.
+php5ts.lib 
+
+Note that earlier versions of Php use php5.lib
+
+9. Removing dependency on "masvc90d.dll"
+
+The dependency is on some debugger dll. Without it the extension dll won't start.
+In order to turn it off, go to Properties -> Linker -> General and set Enable Incremental Linking to No.
+
+Also go to Properties -> C/C++ -> General and set Debug Information Format to Program Database. This is needed, because default option "Program Database for Edit & Continue"
+doesn't work without incremental linking, thus produces warning every time the project is compiled.
+
+
+9. Simple extension, just for something to start from:
+
+------------
+#define PHP_COMPILER_ID  "VC9"
+
+#include "php.h"
+
+
+ZEND_FUNCTION(use_html);
+
+zend_function_entry use_functions[] = 
+{
+	ZEND_FE(use_html, NULL)
+	{NULL, NULL, NULL}
+};
+
+zend_module_entry use_html_module_entry = 
+{
+	STANDARD_MODULE_HEADER,
+	"Use Html",
+	use_functions,
+	NULL, NULL, NULL, NULL, NULL,
+	"1.0.0-tutorial",
+	STANDARD_MODULE_PROPERTIES
+};
+
+ZEND_GET_MODULE(use_html);
+
+ZEND_FUNCTION(use_html)
+{
+	 bool useHtml;
+
+	 if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|b", &useHtml) == FAILURE)
+	 {
+		 E_ERROR;
+		 return;
+	 }
+
+	 if(useHtml)
+	 {
+		 php_printf("This string uses Html");
+	 }
+	 else
+	 {
+		 php_printf("This string does not Html");
+	 }
+
+	 return;
+}
+------------
