@@ -6,4 +6,6 @@ if (!extension_loaded('mage')) {
 
 error_reporting(E_ALL);
 
-echo "Finished";
+echo 'Class Varien_Object ', (class_exists('Varien_Object') ? 'exists' : 'does not exist'); 
+
+echo "\nFinished";

@@ -48,7 +48,7 @@
 				RuntimeLibrary="3"
 				UsePrecompiledHeader="0"
 				WarningLevel="3"
-				DebugInformationFormat="4"
+				DebugInformationFormat="3"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -62,7 +62,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="php5ts.lib"
-				LinkIncremental="2"
+				LinkIncremental="1"
 				AdditionalLibraryDirectories="&quot;C:\Program Files (x86)\PHP\dev&quot;"
 				GenerateDebugInformation="true"
 				SubSystem="2"
@@ -177,6 +177,10 @@
 				RelativePath=".\php_mage.c"
 				>
 			</File>
+			<File
+				RelativePath=".\varien_object.c"
+				>
+			</File>
 		</Filter>
 		<Filter
 			Name="Header Files"
@@ -185,6 +189,10 @@
 			>
 			<File
 				RelativePath=".\php_mage.h"
+				>
+			</File>
+			<File
+				RelativePath=".\varien_object.h"
 				>
 			</File>
 		</Filter>
