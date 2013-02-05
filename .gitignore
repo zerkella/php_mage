@@ -1,0 +1,16 @@
+Debug*/
+Release*/
+BuildLog.htm
+*.dep
+*.dll
+*.exp
+*.idb
+*.lib
+*.manifest
+*.obj
+*.ncb
+*.pch
+*.pdb
+*.res
+*.suo
+*.user
