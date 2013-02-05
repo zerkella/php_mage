@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit>
+    <testsuite name="Unit Tests">
+        <directory suffix="Test.php">testsuite</directory>
+    </testsuite>
+    <php>
+        <ini name="date.timezone" value="America/Los_Angeles"/>
+    </php>
+</phpunit>
