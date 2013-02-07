@@ -6,12 +6,7 @@ static const zend_function_entry mage_functions[] = {
 	PHP_FE_END
 };
 
-// ---MINIT--------------------------
-PHP_MINIT_FUNCTION(mage)
-{
-	mage_varien_object_minit(TSRMLS_C);
-	return SUCCESS;
-}
+PHP_MINIT_FUNCTION(mage);
 
 //---Module declaration--------------
 zend_module_entry mage_module_entry = {
@@ -27,3 +22,9 @@ zend_module_entry mage_module_entry = {
 	STANDARD_MODULE_PROPERTIES
 };
 ZEND_GET_MODULE(mage)
+
+PHP_MINIT_FUNCTION(mage)
+{
+	mage_varien_object_minit(TSRMLS_C);
+	return SUCCESS;
+}

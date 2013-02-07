@@ -1,0 +1,99 @@
+// Just snippets of code, that may work or may not
+---Output functs----------
+PHPWRITE(name, name_length);
+php_printf("%d", 1);
+
+// ---Future Varien_Object methods
+PHP_METHOD(Varien_Object, updateProperty);
+static const zend_function_entry vo_methods[] = {
+	PHP_ME(Varien_Object, updateProperty, NULL, ZEND_ACC_PUBLIC)
+	PHP_FE_END
+};
+	
+PHP_METHOD(Varien_Object, updateProperty)
+{
+	php_printf("Hello World\n");
+}
+
+
+
+// ---Object creation--------------
+zval *tmp;
+zend_object *object;
+zend_object_value retval;
+
+retval = zend_objects_new(&object, vo_class TSRMLS_CC);
+zend_object_std_init(object, vo_class TSRMLS_CC);
+
+vo_def_props_num = zend_hash_num_elements(&vo_class->default_properties);
+ALLOC_HASHTABLE(object->properties);
+zend_hash_init(object->properties, vo_def_props_num, NULL, ZVAL_PTR_DTOR, 0);
+zend_hash_copy(object->properties, &vo_class->default_properties, zval_copy_property_ctor(vo_class), (void *) &tmp, sizeof(zval *));
+
+// Converting object to zval
+MAKE_STD_ZVAL(tmp);
+INIT_PZVAL(tmp);
+Z_TYPE_P(tmp) = IS_OBJECT;
+Z_OBJVAL_P(tmp) = retval;
+
+
+// ---Array zval creation------------------------------
+zval *array_property;
+HashTable *ht;
+
+ALLOC_HASHTABLE(ht);
+if (zend_hash_init(ht, 16, NULL, ZVAL_PTR_DTOR, 1) == FAILURE) { // Optimization - pre-allocate buffer for 16 buckets
+	FREE_HASHTABLE(ht);
+	php_error_docref(NULL TSRMLS_CC, E_ERROR, "Unable to init HashTable for object default property");
+}
+
+MAKE_STD_ZVAL(array_property);
+Z_TYPE_P(array_property) = IS_ARRAY;
+Z_ARRVAL_P(array_property) = ht;
+
+//---Attempt to set array property to a list of properties---------------
+zval *array_property;
+char *mangle_prop_name;
+int mangle_prop_name_length;
+
+// Compose default properties table, which has array zvals. Thus creating each new VO instance via custom "create object" handler will be faster - 
+// we will just by copy this structure to properties of newly created object.
+vo_def_props_num = zend_hash_num_elements(&vo_class->default_properties);
+vo_def_props = (HashTable *) pemalloc(sizeof(HashTable), 1); // ALLOC_HASHTABLE uses non-persistent ealloc()
+zend_hash_init(vo_def_props, vo_def_props_num, NULL, ZVAL_PTR_DTOR, 1);
+zend_hash_copy(vo_def_props, &vo_class->default_properties, zval_copy_property_ctor(vo_class), (void *) &tmp, sizeof(zval *));
+
+//zend_mangle_property_name(&mangle_prop_name, &mangle_prop_name_length, "*", 1, "_data", sizeof("_data"), ZEND_INTERNAL_CLASS);
+//array_property = (zval *) pemalloc(sizeof(zval), 1);
+//INIT_PZVAL(array_property);
+//ZVAL_LONG(array_property, 5);
+//Z_TYPE_P(array_property) = IS_ARRAY;
+//Z_ARRVAL_P(array_property) = (HashTable *) pemalloc(sizeof(HashTable), 1);
+//zend_hash_update(vo_def_props, mangle_prop_name, mangle_prop_name_length, array_property, sizeof(zval *), NULL);
+
+
+//---Protected property unset------------------------
+char *mangle_prop_name;
+int mangle_prop_name_length;
+
+zend_mangle_property_name(&mangle_prop_name, &mangle_prop_name_length, "*", 1, "_data", sizeof("_data"), ZEND_INTERNAL_CLASS);
+zend_hash_del(object->properties, mangle_prop_name, mangle_prop_name_length);
+
+//---Protected property update via property info-----------------------
+zend_property_info *property_info;
+zval *member;
+
+MAKE_STD_ZVAL(member);
+ZVAL_STRINGL(member, "_data", sizeof("_data"), 1);
+property_info = zend_get_property_info(vo_class, member, 0 TSRMLS_CC);
+
+result = zend_hash_quick_update(object->properties, property_info->name, property_info->name_length + 1, property_info->h, &array_property, sizeof(zval *), NULL);
+
+
+// ----Protected property update via mangle---------------------
+zval *array_property;
+
+zend_mangle_property_name(&mangle_prop_name, &mangle_prop_name_length, "*", 1, "_data", sizeof("_data"), ZEND_INTERNAL_CLASS);
+MAKE_STD_ZVAL(array_property);
+ZVAL_LONG(array_property, 5);
+zend_hash_update(object->properties, mangle_prop_name, mangle_prop_name_length, array_property, sizeof(zval *), NULL);*/

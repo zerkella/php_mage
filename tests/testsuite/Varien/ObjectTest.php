@@ -21,14 +21,16 @@ class Varien_ObjectTest extends PHPUnit_Framework_TestCase
      */
     public function testInternalProperties($property, $modifiers, $defaultValue)
     {
+        $this->assertClassHasAttribute($property, 'Varien_Object');
+
         $reflection = new ReflectionClass('Varien_Object');
         $refProperty = $reflection->getProperty($property);
-        $this->assertNotEmpty($refProperty, "Property {$property} doesn't exist");
-
         $actualModifiers = Reflection::getModifierNames($refProperty->getModifiers());
         $this->assertEquals($modifiers, $actualModifiers, 'Modifiers do not match');
 
-        $this->assertSame($defaultValue, $refProperty->getValue());
+        $obj = new Varien_Object();
+        $this->assertObjectHasAttribute($property, $obj);
+        $this->assertAttributeSame($defaultValue, $property, $obj, "Property {$property} has wrong default value");
     }
 
     public static function internalPropertiesDataProvider()
