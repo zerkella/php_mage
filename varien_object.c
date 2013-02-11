@@ -10,21 +10,21 @@ typedef struct {
 } vo_property_declaration_entry_t;
 
 // Macros for property declarations
-#define VO_DECLARE_PROP_ARRAY(property_name) {#property_name, sizeof(#property_name) - 1, IS_ARRAY, 0}
+#define VO_DECLARE_PROP_ARRAY(property_name, num_buckets_initially) {#property_name, sizeof(#property_name) - 1, IS_ARRAY, num_buckets_initially}
 #define VO_DECLARE_PROP_BOOL(property_name, value) {#property_name, sizeof(#property_name) - 1, IS_BOOL, value}
 #define VO_DECLARE_PROP_NULL(property_name) {#property_name, sizeof(#property_name) - 1, IS_NULL, 0}
 #define VO_DECLARE_PROP_END {NULL, 0, 0, 0}
 
 // Property declaration
 static const vo_property_declaration_entry_t vo_property_declarations[] = {
-	VO_DECLARE_PROP_ARRAY(_data),
+	VO_DECLARE_PROP_ARRAY(_data, 16),
 	VO_DECLARE_PROP_BOOL(_hasDataChanges, FALSE),
 	VO_DECLARE_PROP_NULL(_origData),
 	VO_DECLARE_PROP_NULL(_idFieldName),
-	VO_DECLARE_PROP_ARRAY(_underscoreCache),
+	VO_DECLARE_PROP_ARRAY(_underscoreCache, 0),
 	VO_DECLARE_PROP_BOOL(_isDeleted, FALSE),
-	VO_DECLARE_PROP_ARRAY(_oldFieldsMap),
-	VO_DECLARE_PROP_ARRAY(_syncFieldsMap),
+	VO_DECLARE_PROP_ARRAY(_oldFieldsMap, 0),
+	VO_DECLARE_PROP_ARRAY(_syncFieldsMap, 0),
 	VO_DECLARE_PROP_END
 };
 
