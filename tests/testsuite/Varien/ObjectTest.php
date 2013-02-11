@@ -68,4 +68,28 @@ class Varien_ObjectTest extends PHPUnit_Framework_TestCase
         $this->assertAttributeSame(array(), $property2, $obj,
             "Properties {$property2} and {$property1} are linked to each other");
     }
+
+    /**
+    * A temp method to test getData(). Will be reworked with the development of setData() and
+    * appropriate constructor.
+    */
+    public function testGetData()
+    {
+        $reflection = new ReflectionClass('Varien_Object');
+        $refProperty = $reflection->getProperty('_data');
+        $refProperty->setAccessible(true);
+
+        $object = new Varien_Object();
+
+        // Test that getData() really returns what is needed
+        $data = array(1, 2, 3);
+        $refProperty->setValue($object, $data);
+        $returned = $object->getData();
+        $this->assertEquals($data, $returned);
+
+        // Test that returned values is not linked with internal one
+        $returned[] = 4;
+        $newReturned = $object->getData();
+        $this->assertNotEquals($newReturned, $returned);
+    }
 }

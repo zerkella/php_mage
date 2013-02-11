@@ -97,3 +97,38 @@ zend_mangle_property_name(&mangle_prop_name, &mangle_prop_name_length, "*", 1, "
 MAKE_STD_ZVAL(array_property);
 ZVAL_LONG(array_property, 5);
 zend_hash_update(object->properties, mangle_prop_name, mangle_prop_name_length, array_property, sizeof(zval *), NULL);*/
+
+//----Printing array of zvals by key (warning and possibly doesn't work)-----
+int php_sample_print_zval_and_key(zval **val, int num_args, va_list args, zend_hash_key *hash_key)
+{
+	/* Duplicate the zval so that
+	* the original’s contents are not destroyed */
+	zval tmpcopy = **val;
+	/* tsrm_ls is needed by output functions */
+	TSRMLS_FETCH();
+	
+	zval_copy_ctor(&tmpcopy);
+	/* Reset refcount & Convert */
+	INIT_PZVAL(&tmpcopy);
+	convert_to_string(&tmpcopy);
+	
+	/* Output */
+	php_printf("The value of ");
+	return ZEND_HASH_APPLY_KEEP;
+	if (hash_key->nKeyLength) {
+		/* String Key / Associative */
+		PHPWRITE(hash_key->arKey, hash_key->nKeyLength);
+	} else {
+		/* Numeric Key */
+		php_printf("%ld", hash_key->h);
+	}
+	php_printf(" is: ");
+	PHPWRITE(Z_STRVAL(tmpcopy), Z_STRLEN(tmpcopy));
+	php_printf("\n");
+	/* Toss out old copy */
+	zval_dtor(&tmpcopy);
+	/* continue; */
+	return ZEND_HASH_APPLY_KEEP;
+}
+
+zend_hash_apply_with_arguments(Z_OBJPROP_P(object) TSRMLS_CC, php_sample_print_zval_and_key, 0);
