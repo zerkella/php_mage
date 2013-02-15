@@ -92,4 +92,38 @@ class Varien_ObjectTest extends PHPUnit_Framework_TestCase
         $newReturned = $object->getData();
         $this->assertNotEquals($newReturned, $returned);
     }
+
+    public function testConstructor()
+    {
+        // Default param
+        $object = new Varien_Object();
+        $this->assertEquals(array(), $object->getData(), 'Default data must be array');
+
+        // Passing param and implicit linking
+        $data = array('1', '2', '3');
+        $object = new Varien_Object($data);
+        $this->assertEquals($data, $object->getData(), 'Data passed via constructor is not preserved');
+
+        $data[] = '4';
+        $this->assertEquals(array('1', '2', '3'), $object->getData(),
+            'Data after constructor is somehow linked to the originally passed variable');
+
+        // Passing param and implicit linking of referenced value
+        $data = array('1', '2', '3');
+        $dataRef = &$data;
+        $object = new Varien_Object($data);
+
+        $dataRef[] = '4';
+        $this->assertEquals(array('1', '2', '3'), $object->getData(),
+            'Data after constructor is somehow linked to the originally passed variable, which is referenced');
+
+        // Passing param and implicit linking of referenced value
+        $data = array('1', '2', '3');
+        $dataRef = &$data;
+        $object = new Varien_Object($dataRef);
+
+        $dataRef[] = '4';
+        $this->assertEquals(array('1', '2', '3'), $object->getData(),
+            'Data after constructor is somehow linked to the originally passed variable with reference');
+    }
 }

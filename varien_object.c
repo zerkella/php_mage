@@ -178,9 +178,21 @@ static inline void vo_create_default_array_properties(zend_object_value *obj_val
 	FREE_ZVAL(obj_zval);
 }
 
+//public function __construct()
 PHP_METHOD(Varien_Object, __construct)
 {
-	
+	zval *object = getThis();
+	zval *param = NULL;
+	int num_args = ZEND_NUM_ARGS();
+
+	// Assign first argument to _data, if passed
+	if (num_args) {
+		if ((zend_parse_parameters(num_args TSRMLS_CC, "a!", &param) == SUCCESS)
+			&& zend_hash_num_elements(Z_ARRVAL_P(param))) 
+		{
+			zend_update_property(vo_class, object, "_data", sizeof("_data") - 1, param TSRMLS_CC);
+		}
+	}
 }
 
 // public function getData($key='', $index=null)
