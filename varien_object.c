@@ -43,6 +43,7 @@ static vo_property_declaration_entry_t vo_property_declarations[] = {
 
 //---Methods declaration---
 PHP_METHOD(Varien_Object, __construct);
+PHP_METHOD(Varien_Object, _initOldFieldsMap);
 PHP_METHOD(Varien_Object, getData);
 
 ZEND_BEGIN_ARG_INFO_EX(vo_getData_arg_info, 0, 1, 0)
@@ -52,6 +53,7 @@ ZEND_BEGIN_ARG_INFO_EX(vo_getData_arg_info, 0, 1, 0)
 
 static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, __construct, NULL, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
+	PHP_ME(Varien_Object, _initOldFieldsMap, NULL, ZEND_ACC_PROTECTED)
 	PHP_ME(Varien_Object, getData, vo_getData_arg_info, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
 	PHP_FE_END
 };
@@ -235,6 +237,11 @@ PHP_METHOD(Varien_Object, __construct)
 			zend_update_property(obj_ce, obj_zval, "_data", sizeof("_data") - 1, param TSRMLS_CC);
 		}
 	}
+}
+
+//protected function _initOldFieldsMap()
+PHP_METHOD(Varien_Object, _initOldFieldsMap)
+{
 }
 
 // public function getData($key='', $index=null)

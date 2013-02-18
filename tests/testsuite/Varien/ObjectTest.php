@@ -12,6 +12,32 @@ class Varien_ObjectTest extends PHPUnit_Framework_TestCase
     }
 
     /**
+     * Test existence of all class methods
+     *
+     * @param string $method
+     * @param array $modifiers
+     * @dataProvider methodsDataProvider
+     */
+    public function testMethods($method, $modifiers)
+    {
+        $reflection = new ReflectionClass('Varien_Object');
+        $refMethod = $reflection->getMethod($method);
+        $this->assertNotEmpty($refMethod, "Method '$method' doesn't exist");
+
+        $actualModifiers = Reflection::getModifierNames($refMethod->getModifiers());
+        $this->assertEquals($modifiers, $actualModifiers, 'Modifiers do not match');
+    }
+
+    public static function methodsDataProvider()
+    {
+        return array(
+            array('__construct', array('public')),
+            array('_initOldFieldsMap', array('protected')),
+            array('getData', array('public')),
+        );
+    }
+
+    /**
      * Test default state of class properties
      *
      * @param string $property
