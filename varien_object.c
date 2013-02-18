@@ -1,22 +1,35 @@
 #include "php.h"
+#include "zend_interfaces.h"
 #include "varien_object.h"
+#include "temp.h"
+
+#define INTERNAL_ARR_DEF -97623086 // Default value for array properties, so we know when it was redeclared in subclass
 
 // ---Protected property declarations-------
+// Dynamically calculated internal name of property and its hash
+typedef struct {
+	char *name;
+	int name_len;
+	ulong hash;
+} vo_property_info_t;
+
+// Declaration of properties
 typedef struct {
 	char *name;
 	uint name_len;
 	zend_uchar type;
 	long default_value;
+	vo_property_info_t *internal_info;
 } vo_property_declaration_entry_t;
 
 // Macros for property declarations
-#define VO_DECLARE_PROP_ARRAY(property_name, num_buckets_initially) {#property_name, sizeof(#property_name) - 1, IS_ARRAY, num_buckets_initially}
-#define VO_DECLARE_PROP_BOOL(property_name, value) {#property_name, sizeof(#property_name) - 1, IS_BOOL, value}
-#define VO_DECLARE_PROP_NULL(property_name) {#property_name, sizeof(#property_name) - 1, IS_NULL, 0}
-#define VO_DECLARE_PROP_END {NULL, 0, 0, 0}
+#define VO_DECLARE_PROP_ARRAY(property_name, num_buckets_initially) {#property_name, sizeof(#property_name) - 1, IS_ARRAY, num_buckets_initially, NULL}
+#define VO_DECLARE_PROP_BOOL(property_name, value) {#property_name, sizeof(#property_name) - 1, IS_BOOL, value, NULL}
+#define VO_DECLARE_PROP_NULL(property_name) {#property_name, sizeof(#property_name) - 1, IS_NULL, 0, NULL}
+#define VO_DECLARE_PROP_END {NULL, 0, 0, 0, NULL}
 
 // Property declaration
-static const vo_property_declaration_entry_t vo_property_declarations[] = {
+static vo_property_declaration_entry_t vo_property_declarations[] = {
 	VO_DECLARE_PROP_ARRAY(_data, 16),
 	VO_DECLARE_PROP_BOOL(_hasDataChanges, FALSE),
 	VO_DECLARE_PROP_NULL(_origData),
@@ -43,13 +56,6 @@ static const zend_function_entry vo_methods[] = {
 	PHP_FE_END
 };
 
-//---Internal types---
-typedef struct {
-	char *name;
-	int name_len;
-	ulong hash;
-} vo_property_info_t;
-
 //---Used variables---
 static zend_class_entry *vo_class;
 static int vo_def_props_num;
@@ -58,14 +64,15 @@ static vo_property_info_t *vo_data_property_info;
 // Forward declarations
 static zend_object_value vo_create_handler(zend_class_entry *class_type TSRMLS_DC);
 static void vo_create_default_array_properties(zend_object_value *obj_value TSRMLS_DC);
-static vo_property_info_t *get_protected_property_info(HashTable *ht, char *name, int name_len, int persistent);
+static vo_property_info_t *get_protected_property_info(const char *name, int name_len, int persistent);
+static zend_bool def_property_redeclared(const zval *obj_zval, const zend_class_entry *class_type, const vo_property_declaration_entry_t *property_declaration);
 
 // Module initialization. Register Varien_Object class.
 int mage_varien_object_minit(TSRMLS_D)
 {
 	zend_class_entry ce;
 	int i;
-	const vo_property_declaration_entry_t *prop_declaration;
+	vo_property_declaration_entry_t *prop_declaration;
 
 	//---Class---
 	INIT_CLASS_ENTRY(ce, "Varien_Object", vo_methods);
@@ -88,29 +95,36 @@ int mage_varien_object_minit(TSRMLS_D)
 			case IS_BOOL:
 				zend_declare_property_bool(vo_class, prop_declaration->name, prop_declaration->name_len, prop_declaration->default_value, ZEND_ACC_PROTECTED TSRMLS_CC);
 				break;
+			case IS_ARRAY: 
+				/* There is no ability to declare default array property for internal class. And there is no ability to know, that
+				 * a subclass has re-declared a property. Thus array properties are initially declared as special int values, 
+				 * but are reinitialized to empty arrays in the create_handler.
+				 */
+				zend_declare_property_long(vo_class, prop_declaration->name, prop_declaration->name_len, INTERNAL_ARR_DEF, ZEND_ACC_PROTECTED TSRMLS_CC);
+				break;
 			case IS_NULL:
-			case IS_ARRAY: // Arrays are initially declared as NULLs, but are reinitialized to arrays in the create_handler
 				zend_declare_property_null(vo_class, prop_declaration->name, prop_declaration->name_len, ZEND_ACC_PROTECTED TSRMLS_CC);
 				break;
 			default:
 				php_error_docref(NULL TSRMLS_CC, E_ERROR, "Unknown property declaration type %s:%d", prop_declaration->name, prop_declaration->type);
 				break;
 		}
+		prop_declaration->internal_info = get_protected_property_info(prop_declaration->name, prop_declaration->name_len, 1); 
 	};
 
 	// Optimization - cache different values
 	vo_def_props_num = zend_hash_num_elements(&vo_class->default_properties);
-	vo_data_property_info = get_protected_property_info(&vo_class->default_properties, "_data", sizeof("_data") - 1, TRUE);
+	vo_data_property_info = get_protected_property_info("_data", sizeof("_data") - 1, TRUE);
 
 	return SUCCESS;
 }
 
 // Returns hash of a protected property, searching it in the array of properties
-static vo_property_info_t *get_protected_property_info(HashTable *ht, char *name, int name_len, int persistent) 
+static vo_property_info_t *get_protected_property_info(const char *name, int name_len, int persistent) 
 {
 	vo_property_info_t *result;
 	result = pemalloc(sizeof(vo_property_info_t), persistent);
-	zend_mangle_property_name(&result->name, &result->name_len, "*", 1, name, name_len, TRUE);
+	zend_mangle_property_name(&result->name, &result->name_len, "*", 1, name, name_len, TRUE); // * = protected property
 	result->name_len++; // Somehow additional \0 at the end also should be counted
 	result->hash = zend_get_hash_value(result->name, result->name_len);
 	return result;
@@ -137,7 +151,6 @@ static zend_object_value vo_create_handler(zend_class_entry *class_type TSRMLS_D
 
 	return retval;
 }
-
 static inline void vo_create_default_array_properties(zend_object_value *obj_value TSRMLS_DC)
 {
 	zval *obj_zval;
@@ -146,10 +159,13 @@ static inline void vo_create_default_array_properties(zend_object_value *obj_val
 	const vo_property_declaration_entry_t *prop_declaration;
 	zval *array_property;
 	HashTable *ht;
+	zend_class_entry *obj_ce;
 
 	MAKE_STD_ZVAL(obj_zval);
 	Z_TYPE_P(obj_zval) = IS_OBJECT;
 	Z_OBJVAL_P(obj_zval) = *obj_value;
+
+	obj_ce = Z_OBJCE_P(obj_zval);
 
 	for (i = 0; ; i++) {
 		prop_declaration = &vo_property_declarations[i];
@@ -157,6 +173,10 @@ static inline void vo_create_default_array_properties(zend_object_value *obj_val
 			break;
 		}
 		if (prop_declaration->type != IS_ARRAY) {
+			continue;
+		}
+
+		if (def_property_redeclared(obj_zval, obj_ce, prop_declaration)) {
 			continue;
 		}
 
@@ -172,25 +192,47 @@ static inline void vo_create_default_array_properties(zend_object_value *obj_val
 
 		zend_update_property(vo_class, obj_zval, prop_declaration->name, prop_declaration->name_len, array_property TSRMLS_CC);
 
-		zval_ptr_dtor(&array_property); // It has been saved saved as object property, so just decrease refcount
+		zval_ptr_dtor(&array_property); // It has been saved saved as object's property, so just decrease refcount
 	}
 
 	FREE_ZVAL(obj_zval);
 }
 
+static zend_bool def_property_redeclared(const zval *obj_zval, const zend_class_entry *class_type, const vo_property_declaration_entry_t *property_declaration) {
+	zval **def_property;
+
+	if (class_type == vo_class) {
+		return FALSE; // This is our own class
+	}
+	
+	if (zend_hash_quick_find(&class_type->default_properties, property_declaration->internal_info->name, property_declaration->internal_info->name_len, property_declaration->internal_info->hash, (void **) &def_property) == FAILURE) {
+		return TRUE; // Internal name was changed, which means that protected access changed to public, which means property was redeclared
+	}
+
+	if ((Z_TYPE_PP(def_property) == IS_LONG) && (Z_LVAL_PP(def_property) == INTERNAL_ARR_DEF)) {
+		return FALSE;
+	} 
+
+	return TRUE;
+}
+
 //public function __construct()
 PHP_METHOD(Varien_Object, __construct)
 {
-	zval *object = getThis();
+	zval *obj_zval = getThis();
 	zval *param = NULL;
 	int num_args = ZEND_NUM_ARGS();
+	zend_class_entry *obj_ce = Z_OBJCE_P(obj_zval);
 
-	// Assign first argument to _data, if passed
+	/*
+	---PHP---
+	Assign first argument to _data
+	*/
 	if (num_args) {
 		if ((zend_parse_parameters(num_args TSRMLS_CC, "a!", &param) == SUCCESS)
 			&& zend_hash_num_elements(Z_ARRVAL_P(param))) 
 		{
-			zend_update_property(vo_class, object, "_data", sizeof("_data") - 1, param TSRMLS_CC);
+			zend_update_property(obj_ce, obj_zval, "_data", sizeof("_data") - 1, param TSRMLS_CC);
 		}
 	}
 }

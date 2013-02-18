@@ -33,6 +33,9 @@ class Varien_ObjectTest extends PHPUnit_Framework_TestCase
         $this->assertAttributeSame($defaultValue, $property, $obj, "Property {$property} has wrong default value");
     }
 
+    /**
+     * @return array
+     */
     public static function propertiesDataProvider()
     {
         return array(
@@ -70,9 +73,43 @@ class Varien_ObjectTest extends PHPUnit_Framework_TestCase
     }
 
     /**
-    * A temp method to test getData(). Will be reworked with the development of setData() and
-    * appropriate constructor.
-    */
+     * Verify, that descendant class can declare new and redeclare properties
+     *
+     * @param string $property
+     * @param mixed $expected
+     * @dataProvider descendantPropertiesDataProvider
+     */
+    public function testDescendantProperties($property, $expected)
+    {
+        include_once __DIR__ . '/_files/Descendant/Properties.php';
+        $descendant = new Varien_Object_Descendant_Properties();
+
+        $this->assertObjectHasAttribute($property, $descendant);
+        $this->assertAttributeSame($expected, $property, $descendant);
+    }
+
+    /**
+     * @return array
+     */
+    public static function descendantPropertiesDataProvider()
+    {
+        return array(
+            array('_data', array()),
+            array('_hasDataChanges', false),
+            array('_origData', null),
+            array('_idFieldName', 'some_id'),
+            array('_underscoreCache', array(1, 2, 3)),
+            array('_isDeleted', false),
+            array('_oldFieldsMap', 456),
+            array('_syncFieldsMap', null),
+            array('_newProperty', array(7, 8, 9)),
+        );
+    }
+
+    /**
+     * A temp method to test getData(). Will be reworked with the development of setData() and
+     * appropriate constructor.
+     */
     public function testGetData()
     {
         $reflection = new ReflectionClass('Varien_Object');

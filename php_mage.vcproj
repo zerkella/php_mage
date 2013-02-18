@@ -178,6 +178,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\temp.c"
+				>
+			</File>
+			<File
 				RelativePath=".\varien_object.c"
 				>
 			</File>
@@ -189,6 +193,10 @@
 			>
 			<File
 				RelativePath=".\php_mage.h"
+				>
+			</File>
+			<File
+				RelativePath=".\temp.h"
 				>
 			</File>
 			<File
