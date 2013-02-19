@@ -48,18 +48,15 @@ PHP_METHOD(Varien_Object, _prepareSyncFieldsMap);
 PHP_METHOD(Varien_Object, _construct);
 PHP_METHOD(Varien_Object, getData);
 
-ZEND_BEGIN_ARG_INFO_EX(vo_getData_arg_info, 0, 1, 0)
+ZEND_BEGIN_ARG_INFO_EX(vo_getData_arg_info, 0, 0, 0)
 	ZEND_ARG_INFO(0, key)
 	ZEND_ARG_INFO(0, index)
-	ZEND_END_ARG_INFO()
-
-ZEND_BEGIN_ARG_INFO_EX(vo_prepareSyncFieldsMap_arg_info, 0, 1, 0)
 	ZEND_END_ARG_INFO()
 
 static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, __construct, NULL, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
 	PHP_ME(Varien_Object, _initOldFieldsMap, NULL, ZEND_ACC_PROTECTED)
-	PHP_ME(Varien_Object, _prepareSyncFieldsMap, vo_prepareSyncFieldsMap_arg_info, ZEND_ACC_PROTECTED)
+	PHP_ME(Varien_Object, _prepareSyncFieldsMap, NULL, ZEND_ACC_PROTECTED)
 	PHP_ME(Varien_Object, _construct, NULL, ZEND_ACC_PROTECTED)
 	PHP_ME(Varien_Object, getData, vo_getData_arg_info, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
 	PHP_FE_END
@@ -337,9 +334,11 @@ PHP_METHOD(Varien_Object, _prepareSyncFieldsMap)
 	--PHP---
 	return $this;
 	*/
-	zval_ptr_dtor(return_value_ptr);
-	*return_value_ptr = obj_zval;
-	Z_ADDREF_PP(return_value_ptr);
+	if (return_value_used) {
+		Z_TYPE_P(return_value) = IS_OBJECT;
+		Z_OBJVAL_P(return_value) = Z_OBJVAL_P(obj_zval);
+		zval_copy_ctor(return_value);
+	}
 }
 
 // Put the flipped key->val to the table, which is passed as additional argument
@@ -386,6 +385,10 @@ PHP_METHOD(Varien_Object, getData)
 	int parse_result;
 	zval **extracted_property;
 
+	if (!return_value_used) {
+		return;
+	}
+
 	if (num_args) {
 		if (num_args == 1) {
 			parse_result = zend_parse_parameters(num_args TSRMLS_CC, "s!", &key, &key_len);
@@ -412,14 +415,9 @@ PHP_METHOD(Varien_Object, getData)
 		if (zend_hash_quick_find(Z_OBJPROP_P(object), vo_data_property_info->name, vo_data_property_info->name_len, vo_data_property_info->hash, (void**)&extracted_property) == FAILURE) {
 			php_error_docref(NULL TSRMLS_CC, E_ERROR, "Strange error - couldn't get _data property");
 		}
+
 		// Return property
-		if (Z_ISREF_PP(extracted_property)) {
-			MAKE_COPY_ZVAL(extracted_property, return_value);
-		} else {
-			zval_ptr_dtor(return_value_ptr);
-			*return_value_ptr = *extracted_property;
-			Z_ADDREF_PP(return_value_ptr);
-		}
+		MAKE_COPY_ZVAL(extracted_property, return_value);
 	} else {
 		// TODO: fill this logic in
 		// Process data and index

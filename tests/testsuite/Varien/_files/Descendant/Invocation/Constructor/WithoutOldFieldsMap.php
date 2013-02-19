@@ -12,7 +12,7 @@ class Varien_Object_Descendant_Invocation_Constructor_WithoutOldFieldsMap extend
         echo "_initOldFieldsMap()\n";
     }
 
-    protected function &_prepareSyncFieldsMap()
+    protected function _prepareSyncFieldsMap()
     {
         echo "_prepareSyncFieldsMap()\n";
         return $this;
