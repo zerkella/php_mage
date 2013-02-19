@@ -2,15 +2,16 @@
 /**
  * The file redeclares some properties of Varien_Object
  */
-class Varien_Object_Descendant_Properties extends Varien_Object {
+class Varien_Object_Descendant_Properties extends Varien_Object
+{
 
     protected $_idFieldName = 'some_id';
 
-    protected $_underscoreCache = array(1, 2, 3);
+    protected $_underscoreCache = 123;
 
-    public $_oldFieldsMap = 456;
+    public $_oldFieldsMap = array(4, 5, 6);
 
-    public $_syncFieldsMap = null;
+    public $_isDeleted = null;
 
     protected $_newProperty = array(7, 8, 9);
 }

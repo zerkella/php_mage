@@ -44,6 +44,7 @@ static vo_property_declaration_entry_t vo_property_declarations[] = {
 //---Methods declaration---
 PHP_METHOD(Varien_Object, __construct);
 PHP_METHOD(Varien_Object, _initOldFieldsMap);
+PHP_METHOD(Varien_Object, _prepareSyncFieldsMap);
 PHP_METHOD(Varien_Object, getData);
 
 ZEND_BEGIN_ARG_INFO_EX(vo_getData_arg_info, 0, 1, 0)
@@ -51,9 +52,13 @@ ZEND_BEGIN_ARG_INFO_EX(vo_getData_arg_info, 0, 1, 0)
 	ZEND_ARG_INFO(0, index)
 	ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(vo_prepareSyncFieldsMap_arg_info, 0, 1, 0)
+	ZEND_END_ARG_INFO()
+
 static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, __construct, NULL, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
 	PHP_ME(Varien_Object, _initOldFieldsMap, NULL, ZEND_ACC_PROTECTED)
+	PHP_ME(Varien_Object, _prepareSyncFieldsMap, vo_prepareSyncFieldsMap_arg_info, ZEND_ACC_PROTECTED)
 	PHP_ME(Varien_Object, getData, vo_getData_arg_info, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
 	PHP_FE_END
 };
@@ -68,6 +73,7 @@ static zend_object_value vo_create_handler(zend_class_entry *class_type TSRMLS_D
 static void vo_create_default_array_properties(zend_object_value *obj_value TSRMLS_DC);
 static vo_property_info_t *get_protected_property_info(const char *name, int name_len, int persistent);
 static zend_bool def_property_redeclared(const zval *obj_zval, const zend_class_entry *class_type, const vo_property_declaration_entry_t *property_declaration);
+static int vo_callback_make_syncFieldsMap(zval **zv TSRMLS_DC, int num_args, va_list args, zend_hash_key *hash_key);
 
 // Module initialization. Register Varien_Object class.
 int mage_varien_object_minit(TSRMLS_D)
@@ -145,7 +151,7 @@ static zend_object_value vo_create_handler(zend_class_entry *class_type TSRMLS_D
 	
 	// Copy class properties
 	ALLOC_HASHTABLE(object->properties);
-	zend_hash_init(object->properties, vo_def_props_num, NULL, ZVAL_PTR_DTOR, 0);
+	zend_hash_init(object->properties, vo_def_props_num, NULL, ZVAL_PTR_DTOR, FALSE);
 	zend_hash_copy(object->properties, &class_type->default_properties, zval_copy_property_ctor(class_type), (void *) &tmp, sizeof(zval *));
 
 	// Update properties that must be arrays by default
@@ -183,7 +189,7 @@ static inline void vo_create_default_array_properties(zend_object_value *obj_val
 		}
 
 		ALLOC_HASHTABLE(ht);
-		if (zend_hash_init(ht, prop_declaration->default_value, NULL, ZVAL_PTR_DTOR, 1) == FAILURE) { // Optimization - pre-allocate buffer for "default_value" buckets
+		if (zend_hash_init(ht, prop_declaration->default_value, NULL, ZVAL_PTR_DTOR, TRUE) == FAILURE) { // Optimization - pre-allocate buffer for "default_value" buckets
 			FREE_HASHTABLE(ht);
 			php_error_docref(NULL TSRMLS_CC, E_ERROR, "Unable to init HashTable for object default property");
 		}
@@ -225,6 +231,31 @@ PHP_METHOD(Varien_Object, __construct)
 	zval *param = NULL;
 	int num_args = ZEND_NUM_ARGS();
 	zend_class_entry *obj_ce = Z_OBJCE_P(obj_zval);
+	zval *oldFieldsMap, *tmp_zval;
+	zend_bool isOldFieldsMap;
+
+	/*
+	---PHP---
+	$this->_initOldFieldsMap();
+	*/
+	zend_call_method_with_0_params(&obj_zval, obj_ce, NULL, "_initoldfieldsmap", NULL);
+
+	/*
+	---PHP---
+	if ($this->_oldFieldsMap) {
+		$this->_prepareSyncFieldsMap();
+	}
+	*/
+	oldFieldsMap = zend_read_property(obj_ce, obj_zval, "_oldFieldsMap", sizeof("_oldFieldsMap") - 1, FALSE TSRMLS_CC);
+	ALLOC_INIT_ZVAL(tmp_zval);
+	MAKE_COPY_ZVAL(&oldFieldsMap, tmp_zval);
+	convert_to_boolean(tmp_zval);
+	isOldFieldsMap = Z_BVAL_P(tmp_zval);
+	zval_ptr_dtor(&tmp_zval);
+
+	if (isOldFieldsMap) {
+		zend_call_method_with_0_params(&obj_zval, obj_ce, NULL, "_preparesyncfieldsmap", NULL);
+	}
 
 	/*
 	---PHP---
@@ -242,6 +273,87 @@ PHP_METHOD(Varien_Object, __construct)
 //protected function _initOldFieldsMap()
 PHP_METHOD(Varien_Object, _initOldFieldsMap)
 {
+}
+
+//protected function _prepareSyncFieldsMap()
+PHP_METHOD(Varien_Object, _prepareSyncFieldsMap)
+{
+	zval *obj_zval = getThis();
+	zend_class_entry *obj_ce = Z_OBJCE_P(obj_zval);
+	zval *syncFieldsMap, *oldFieldsMap;
+	int num_sync_elements;
+	HashTable *ht_for_property;
+
+	/*
+	---PHP---
+	$old2New = $this->_oldFieldsMap;
+	$new2Old = array_flip($this->_oldFieldsMap);
+	$this->_syncFieldsMap = array_merge($old2New, $new2Old);
+	*/
+	oldFieldsMap = zend_read_property(obj_ce, obj_zval, "_oldFieldsMap", sizeof("_oldFieldsMap") - 1, FALSE TSRMLS_CC);
+	if (Z_TYPE_P(oldFieldsMap) != IS_ARRAY) {
+		php_error_docref(NULL TSRMLS_CC, E_ERROR, "_oldFieldsMap is not an array, while processing it through _prepareSyncFieldsMap() method");
+	}
+
+	// Create new zval for syncFieldsMap 
+	num_sync_elements = zend_hash_num_elements(Z_ARRVAL_P(oldFieldsMap));
+	ALLOC_HASHTABLE(ht_for_property);
+	if (zend_hash_init(ht_for_property, num_sync_elements * 2, NULL, ZVAL_PTR_DTOR, FALSE) == FAILURE) {
+		FREE_HASHTABLE(ht_for_property);
+		php_error_docref(NULL TSRMLS_CC, E_ERROR, "Unable to init HashTable for _syncFieldsMap");
+	}
+
+	syncFieldsMap = zend_read_property(obj_ce, obj_zval, "_syncFieldsMap", sizeof("_syncFieldsMap") - 1, FALSE TSRMLS_CC);
+	if (!Z_ISREF_P(syncFieldsMap) && (Z_REFCOUNT_P(syncFieldsMap) > 1)) {
+		// Create new zval and set it to object
+		ALLOC_INIT_ZVAL(syncFieldsMap);
+		zend_update_property(obj_ce, obj_zval, "_syncFieldsMap", sizeof("_syncFieldsMap") - 1, syncFieldsMap TSRMLS_CC);
+	} else {
+		// Keep current zval, just clean its current content
+		zval_dtor(syncFieldsMap);
+	}
+	Z_TYPE_P(syncFieldsMap) = IS_ARRAY;
+	Z_ARRVAL_P(syncFieldsMap) = ht_for_property;
+	
+	// Copy values from oldFieldsMap
+	zend_hash_copy(ht_for_property, Z_ARRVAL_P(oldFieldsMap), zval_add_ref, NULL, sizeof(zval *));
+	
+	// Add flipped pairs from oldFieldsMap
+	zend_hash_apply_with_arguments(Z_ARRVAL_P(oldFieldsMap) TSRMLS_CC, vo_callback_make_syncFieldsMap, 1, ht_for_property);
+
+	/*
+	--PHP---
+	return $this;
+	*/
+	zval_ptr_dtor(return_value_ptr);
+	*return_value_ptr = obj_zval;
+	Z_ADDREF_PP(return_value_ptr);
+}
+
+// Put the flipped key->val to the table, which is passed as additional argument
+static int vo_callback_make_syncFieldsMap(zval **zv TSRMLS_DC, int num_args, va_list args, zend_hash_key *hash_key)
+{
+	zval *new_zval;
+	char *value;
+	uint value_len;
+	HashTable *target = va_arg(args, HashTable*);
+
+	ALLOC_INIT_ZVAL(new_zval);
+	MAKE_COPY_ZVAL(zv, new_zval);
+	convert_to_string(new_zval);
+	value = Z_STRVAL_P(new_zval);
+	value_len = Z_STRLEN_P(new_zval);
+	if (hash_key->nKeyLength) {
+		Z_STRVAL_P(new_zval) = estrndup(hash_key->arKey, hash_key->nKeyLength - 1);
+		Z_STRLEN_P(new_zval) = hash_key->nKeyLength - 1;
+	} else {
+		Z_STRLEN_P(new_zval) = spprintf(&Z_STRVAL_P(new_zval), 0, "%ld", hash_key->h);
+	}
+
+	zend_hash_update(target, value, value_len + 1, &new_zval, sizeof(zval *), NULL); // "update" used instead of "add", so we don't need to react, if the key already exists
+	efree(value);
+
+	return ZEND_HASH_APPLY_KEEP;
 }
 
 // public function getData($key='', $index=null)

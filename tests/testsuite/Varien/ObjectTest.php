@@ -4,6 +4,21 @@
  */
 class Varien_ObjectTest extends PHPUnit_Framework_TestCase
 {
+    static public function setUpBeforeClass()
+    {
+        // Setup autloader to load tested descendants automatically
+        $autoloader = function ($class) {
+            $myPrefix = 'Varien_Object_Descendant_';
+            if (strncmp($class, $myPrefix, strlen($myPrefix)) != 0) {
+                return;
+            }
+            $classNameBody = substr($class, strlen($myPrefix));
+            $subPath = str_replace('_', '/', $classNameBody);
+            include __DIR__ . '/_files/Descendant/' . $subPath . '.php';
+        };
+        spl_autoload_register($autoloader);
+    }
+
     public function assertPreConditions()
     {
         $this->assertTrue(extension_loaded('mage'), 'Extension "mage" is not loaded');
@@ -33,6 +48,7 @@ class Varien_ObjectTest extends PHPUnit_Framework_TestCase
         return array(
             array('__construct', array('public')),
             array('_initOldFieldsMap', array('protected')),
+            array('_prepareSyncFieldsMap', array('protected')),
             array('getData', array('public')),
         );
     }
@@ -107,7 +123,6 @@ class Varien_ObjectTest extends PHPUnit_Framework_TestCase
      */
     public function testDescendantProperties($property, $expected)
     {
-        include_once __DIR__ . '/_files/Descendant/Properties.php';
         $descendant = new Varien_Object_Descendant_Properties();
 
         $this->assertObjectHasAttribute($property, $descendant);
@@ -120,15 +135,14 @@ class Varien_ObjectTest extends PHPUnit_Framework_TestCase
     public static function descendantPropertiesDataProvider()
     {
         return array(
-            array('_data', array()),
-            array('_hasDataChanges', false),
-            array('_origData', null),
-            array('_idFieldName', 'some_id'),
-            array('_underscoreCache', array(1, 2, 3)),
-            array('_isDeleted', false),
-            array('_oldFieldsMap', 456),
-            array('_syncFieldsMap', null),
-            array('_newProperty', array(7, 8, 9)),
+            '_data' =>              array('_data', array()),
+            '_hasDataChanges' =>    array('_hasDataChanges', false),
+            '_origData' =>          array('_origData', null),
+            '_idFieldName' =>       array('_idFieldName', 'some_id'),
+            '_underscoreCache' =>   array('_underscoreCache', 123),
+            '_isDeleted' =>         array('_isDeleted', null),
+            '_oldFieldsMap' =>      array('_oldFieldsMap', array(4, 5, 6)),
+            '_newProperty' =>       array('_newProperty', array(7, 8, 9)),
         );
     }
 
@@ -188,5 +202,48 @@ class Varien_ObjectTest extends PHPUnit_Framework_TestCase
         $dataRef[] = '4';
         $this->assertEquals(array('1', '2', '3'), $object->getData(),
             'Data after constructor is somehow linked to the originally passed variable with reference');
+    }
+
+
+    /**
+     * Test reaction on $_oldFieldsMap property in constructor - the $_syncFieldsMap must be properly composed
+     *
+     * @param string $className
+     * @param bool $expectedSyncFieldsMap
+     * @dataProvider oldFieldsMapProcessingDataProvider
+     */
+    public function testOldFieldsMapProcessing($className, $expectedSyncFieldsMap)
+    {
+        $obj = new $className();
+        $this->assertAttributeEquals($expectedSyncFieldsMap, '_syncFieldsMap', $obj);
+    }
+
+    public static function oldFieldsMapProcessingDataProvider()
+    {
+        return array(
+            'Varien_Object' => array(
+                'Varien_Object',
+                array()
+            ),
+            'dynamic $_oldFieldsMap' => array(
+                'Varien_Object_Descendant_OldFieldsMap_Dynamic',
+                array('a' => 'b', 'c' => 'd', 'b' => 'a', 'd' => 'c')
+            ),
+            'static $_oldFieldsMap' => array(
+                'Varien_Object_Descendant_OldFieldsMap_Static',
+                array('e' => 'f', 'g' => 'h', 'f' => 'e', 'h' => 'g')
+            ),
+        );
+    }
+
+    public function testPrepareSyncFieldsMap()
+    {
+        $reflection = new ReflectionClass('Varien_Object');
+        $refMethod = $reflection->getMethod('_prepareSyncFieldsMap');
+        $refMethod->setAccessible(true);
+
+        $object = new Varien_Object();
+        $result = $refMethod->invoke($object);
+        $this->assertSame($object, $result);
     }
 }
