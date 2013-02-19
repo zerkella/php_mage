@@ -15,5 +15,5 @@ int temp_print_key(zval **zv TSRMLS_DC, int num_args, va_list args, zend_hash_ke
 
 void temp_print_array_keys(HashTable *ht TSRMLS_DC)
 {
-	zend_hash_apply_with_arguments(ht TSRMLS_CC, temp_print_key, 0);	
+	zend_hash_apply_with_arguments(ht TSRMLS_CC, temp_print_key, 0);
 }
