@@ -49,6 +49,7 @@ class Varien_ObjectTest extends PHPUnit_Framework_TestCase
             array('__construct', array('public')),
             array('_initOldFieldsMap', array('protected')),
             array('_prepareSyncFieldsMap', array('protected')),
+            array('_construct', array('protected')),
             array('getData', array('public')),
         );
     }
@@ -218,6 +219,9 @@ class Varien_ObjectTest extends PHPUnit_Framework_TestCase
         $this->assertAttributeEquals($expectedSyncFieldsMap, '_syncFieldsMap', $obj);
     }
 
+    /**
+     * @return array
+     */
     public static function oldFieldsMapProcessingDataProvider()
     {
         return array(
@@ -245,5 +249,36 @@ class Varien_ObjectTest extends PHPUnit_Framework_TestCase
         $object = new Varien_Object();
         $result = $refMethod->invoke($object);
         $this->assertSame($object, $result);
+    }
+
+    /**
+     * @param string $className
+     * @param array $initialData
+     * @param string $expectedOutput
+     * @dataProvider constructorInvocationDataProvider
+     */
+    public function testConstructorInvocation($className, $initialData, $expectedOutput)
+    {
+        $this->expectOutputString($expectedOutput);
+        new $className($initialData);
+    }
+
+    /**
+     * @return array
+     */
+    public static function constructorInvocationDataProvider()
+    {
+        return array(
+            array(
+                'Varien_Object_Descendant_Invocation_Constructor_General',
+                array(1, 2, 3),
+                "_initOldFieldsMap()\n_prepareSyncFieldsMap()\n_construct(): 1,2,3\n"
+            ),
+            array(
+                'Varien_Object_Descendant_Invocation_Constructor_WithoutOldFieldsMap',
+                array(4, 5, 6),
+                "_initOldFieldsMap()\n_construct(): 4,5,6\n"
+            ),
+        );
     }
 }
