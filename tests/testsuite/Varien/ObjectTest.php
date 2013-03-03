@@ -216,7 +216,7 @@ class Varien_ObjectTest extends PHPUnit_Framework_TestCase
     public function testOldFieldsMapProcessing($className, $expectedSyncFieldsMap)
     {
         $obj = new $className();
-        $this->assertAttributeEquals($expectedSyncFieldsMap, '_syncFieldsMap', $obj);
+        $this->assertAttributeSame($expectedSyncFieldsMap, '_syncFieldsMap', $obj);
     }
 
     /**
@@ -231,11 +231,11 @@ class Varien_ObjectTest extends PHPUnit_Framework_TestCase
             ),
             'dynamic $_oldFieldsMap' => array(
                 'Varien_Object_Descendant_OldFieldsMap_Dynamic',
-                array('a' => 'b', 'c' => 'd', 'b' => 'a', 'd' => 'c')
+                array('a' => 'b', 'c' => 'd', 111 => 222, 'b' => 'a', 'd' => 'c', 222 => 111)
             ),
             'static $_oldFieldsMap' => array(
                 'Varien_Object_Descendant_OldFieldsMap_Static',
-                array('e' => 'f', 'g' => 'h', 'f' => 'e', 'h' => 'g')
+                array('e' => 'f', 'g' => 'h', 333 => 444, 'f' => 'e', 'h' => 'g', 444 => 333)
             ),
         );
     }

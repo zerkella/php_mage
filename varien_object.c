@@ -345,25 +345,32 @@ PHP_METHOD(Varien_Object, _prepareSyncFieldsMap)
 static int vo_callback_make_syncFieldsMap(zval **zv TSRMLS_DC, int num_args, va_list args, zend_hash_key *hash_key)
 {
 	zval *new_zval;
-	char *value;
-	uint value_len;
 	HashTable *target = va_arg(args, HashTable*);
 
+	// Create new zval, which contains the key
 	ALLOC_INIT_ZVAL(new_zval);
-	MAKE_COPY_ZVAL(zv, new_zval);
-	convert_to_string(new_zval);
-	value = Z_STRVAL_P(new_zval);
-	value_len = Z_STRLEN_P(new_zval);
 	if (hash_key->nKeyLength) {
-		Z_STRVAL_P(new_zval) = estrndup(hash_key->arKey, hash_key->nKeyLength - 1);
+		Z_TYPE_P(new_zval) = IS_STRING;
 		Z_STRLEN_P(new_zval) = hash_key->nKeyLength - 1;
+		Z_STRVAL_P(new_zval) = estrndup(hash_key->arKey, hash_key->nKeyLength - 1);
 	} else {
-		Z_STRLEN_P(new_zval) = spprintf(&Z_STRVAL_P(new_zval), 0, "%ld", hash_key->h);
+		Z_TYPE_P(new_zval) = IS_LONG;
+		Z_LVAL_P(new_zval) = hash_key->h;
 	}
 
-	zend_hash_update(target, value, value_len + 1, &new_zval, sizeof(zval *), NULL); // "update" used instead of "add", so we don't need to react, if the key already exists
-	efree(value);
-
+	// Put it either under hash string, or index, depending on zval extracted
+	// "update" is used instead of "add", so we don't need to react, if the key already exists
+	switch (Z_TYPE_PP(zv)) {
+		case IS_STRING:
+			zend_hash_update(target, Z_STRVAL_PP(zv), Z_STRLEN_PP(zv) + 1, &new_zval, sizeof(zval *), NULL);
+			break;
+		case IS_LONG:
+			zend_hash_index_update(target, Z_LVAL_PP(zv), &new_zval, sizeof(zval *), NULL);
+			break;
+		default:
+			zval_ptr_dtor(&new_zval);
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "oldFieldsMap must contain only STRING or INTEGER values!");
+	}
 	return ZEND_HASH_APPLY_KEEP;
 }
 
@@ -430,3 +437,4 @@ PHP_METHOD(Varien_Object, getData)
 		RETURN_LONG(33);
 	}
 }
+

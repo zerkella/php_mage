@@ -6,6 +6,6 @@ class Varien_Object_Descendant_OldFieldsMap_Dynamic extends Varien_Object
 {
     protected function _initOldFieldsMap()
     {
-        $this->_oldFieldsMap = array('a' => 'b', 'c' => 'd');
+        $this->_oldFieldsMap = array('a' => 'b', 'c' => 'd', 111 => 222);
     }
 }
