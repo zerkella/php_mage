@@ -17,6 +17,11 @@ class Varien_Object_Descendant_Invocation_Constructor_General extends Varien_Obj
         return $this;
     }
 
+    protected function _addFullNames()
+    {
+        echo '_addFullNames(): ' , implode(',', $this->_data) , "\n";
+    }
+
     protected function _construct()
     {
         echo '_construct(): ' , implode(',', $this->_data) , "\n";

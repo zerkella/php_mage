@@ -49,6 +49,7 @@ class Varien_ObjectTest extends PHPUnit_Framework_TestCase
             array('__construct', array('public')),
             array('_initOldFieldsMap', array('protected')),
             array('_prepareSyncFieldsMap', array('protected')),
+            array('_addFullNames', array('protected')),
             array('_construct', array('protected')),
             array('getData', array('public')),
         );
@@ -272,12 +273,80 @@ class Varien_ObjectTest extends PHPUnit_Framework_TestCase
             array(
                 'Varien_Object_Descendant_Invocation_Constructor_General',
                 array(1, 2, 3),
-                "_initOldFieldsMap()\n_prepareSyncFieldsMap()\n_construct(): 1,2,3\n"
+                "_initOldFieldsMap()\n_prepareSyncFieldsMap()\n_addFullNames(): 1,2,3\n_construct(): 1,2,3\n"
             ),
             array(
                 'Varien_Object_Descendant_Invocation_Constructor_WithoutOldFieldsMap',
                 array(4, 5, 6),
-                "_initOldFieldsMap()\n_construct(): 4,5,6\n"
+                "_initOldFieldsMap()\n_addFullNames(): 4,5,6\n_construct(): 4,5,6\n"
+            ),
+        );
+    }
+
+    /**
+     * @dataProvider addFullNamesDataProvider
+     */
+    public function testAddFullNames($data, $expected)
+    {
+        $object = new Varien_Object_Descendant_AddFullNames($data);
+        $actual = $object->getData();
+        $this->assertEquals($expected, $actual);
+    }
+
+    /**
+     * @return array
+     */
+    public static function addFullNamesDataProvider()
+    {
+        $data = array(
+            'old_property1' => 'old',
+            'new_property2' => 'new',
+            'some_property' => 'some_value',
+            111 => 99,
+        );
+
+        $dataWithReferences = $data;
+        $dataWithReferences['old_property1'] = &$dataWithReferences['some_property'];
+
+        $dataReferenced = $data;
+        $dataReferenced['some_property'] = &$dataReferenced['old_property1'];
+
+        return array(
+            'usual data' => array(
+                'data' => $data,
+                'expected' => array(
+                    'old_property1' => 'old',
+                    'new_property2' => 'new',
+                    'some_property' => 'some_value',
+                    111 => 99,
+                    'new_property1' => 'old',
+                    333 => 99,
+                    'old_property2' => 'new',
+                ),
+            ),
+            'data with references' => array(
+                'data' => $dataWithReferences,
+                'expected' => array(
+                    'old_property1' => 'some_value',
+                    'new_property2' => 'new',
+                    'some_property' => 'some_value',
+                    111 => 99,
+                    'new_property1' => 'some_value',
+                    333 => 99,
+                    'old_property2' => 'new',
+                ),
+            ),
+            'data referenced' => array(
+                'data' => $dataReferenced,
+                'expected' => array(
+                    'old_property1' => 'old',
+                    'new_property2' => 'new',
+                    'some_property' => 'old',
+                    111 => 99,
+                    'new_property1' => 'old',
+                    333 => 99,
+                    'old_property2' => 'new',
+                ),
             ),
         );
     }

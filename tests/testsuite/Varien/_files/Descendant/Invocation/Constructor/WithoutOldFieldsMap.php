@@ -18,6 +18,11 @@ class Varien_Object_Descendant_Invocation_Constructor_WithoutOldFieldsMap extend
         return $this;
     }
 
+    protected function _addFullNames()
+    {
+        echo '_addFullNames(): ' , implode(',', $this->_data) , "\n";
+    }
+
     protected function _construct()
     {
         echo '_construct(): ' , implode(',', $this->_data) , "\n";
