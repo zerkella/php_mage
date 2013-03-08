@@ -491,6 +491,93 @@ PHP_METHOD(Varien_Object, _construct)
 {
 }
 
+// Check whether key contains '/', and if true, then accept $key = 'a/b/c' as query for $this->_data['a']['b']['c']
+int getData_fetch_by_path_key(zval *data, char *key, uint key_len, zval *return_value)
+{
+	/*
+	---PHP---
+    if (strpos($key,'/')) {
+        $keyArr = explode('/', $key);
+        $data = $this->_data;
+        foreach ($keyArr as $i=>$k) {
+            if ($k==='') {
+                return $default;
+            }
+            if (is_array($data)) {
+                if (!isset($data[$k])) {
+                    return $default;
+                }
+                $data = $data[$k];
+            } elseif ($data instanceof Varien_Object) {
+                $data = $data->getData($k);
+            } else {
+                return $default;
+            }
+        }
+        return $data;
+    }
+	*/
+
+	char *found, *search_key, *current_key, *key_end;
+	uint current_key_len;
+	zval **current_zval;
+	HashTable *ht;
+	int result;
+	
+	key_end = key + key_len - 1;
+	found = php_memnstr(key, "/", 1, key_end);
+	if (!found) {
+		return FALSE;
+	}
+
+	current_key = key;
+	current_key_len = found - current_key;
+	current_zval = &data;
+	do {
+		if (!current_key_len) {
+			ZVAL_NULL(return_value);
+			return TRUE;
+		}
+
+		if (Z_TYPE_PP(current_zval) == IS_ARRAY) {
+			ht = Z_ARRVAL_PP(current_zval);
+			search_key = estrndup(current_key, current_key_len); // So we have key with "\0" at end, which is needed for array hash
+			result = zend_hash_find(ht, search_key, current_key_len + 1, (void **) &current_zval);
+			efree(search_key);
+			if (result == FAILURE) {
+				ZVAL_NULL(return_value);
+				return TRUE;
+			}
+		} else if (Z_TYPE_PP(current_zval) == IS_OBJECT) {
+
+
+		} else {
+			ZVAL_NULL(return_value);
+			return TRUE;
+		}
+
+		// Prepare data for next iteration
+		current_key += current_key_len + 1;
+		
+		if (current_key == key_end + 1) {
+			current_key_len = 0;
+			continue;
+		} else if (current_key > key_end + 1) {
+			break;
+		}
+
+		found = php_memnstr(current_key, "/", 1, key_end);
+		if (found) {
+			current_key_len = found - current_key;
+		} else {
+			current_key_len = key_end - current_key + 1;
+		}
+	} while (1);
+
+	MAKE_COPY_ZVAL(current_zval, return_value);
+	return TRUE;
+}
+
 // public function getData($key='', $index=null)
 PHP_METHOD(Varien_Object, getData)
 {
@@ -499,7 +586,7 @@ PHP_METHOD(Varien_Object, getData)
 	zend_bool is_return_whole_data = FALSE;
 
 	char *key = NULL, *index = NULL;
-	int key_len, index_len;
+	uint key_len, index_len;
 
 	int parse_result;
 	zval **data;
@@ -522,29 +609,20 @@ PHP_METHOD(Varien_Object, getData)
 		is_return_whole_data = TRUE;
 	}
 
+	// Process different cases what to return
+	vo_extract_data_property(object, &data);
+
+	// Whole data is requested
 	if (is_return_whole_data) {
-		// We don't need key and index anymore
-		if (key) {
-			efree(key);
-		}
-		if (index) {
-			efree(index);
-		}
-
-		// Extract property and return it
-		vo_extract_data_property(object, &data);
-
-		// Return property
 		MAKE_COPY_ZVAL(data, return_value);
-	} else {
-		// TODO: fill this logic in
-		// Process data and index
-		if (key) {
-			efree(key);
-		}
-		if (index) {
-			efree(index);
-		}
-		RETURN_LONG(33);
+		return;
+	} 
+	
+	// Key passed contains '/'
+	if (getData_fetch_by_path_key(*data, key, key_len, return_value)) {
+		return;
 	}
+
+	// Support for old-old-old "index" parameter
+	RETURN_LONG(33);
 }

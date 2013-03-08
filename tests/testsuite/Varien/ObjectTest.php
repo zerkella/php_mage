@@ -148,30 +148,6 @@ class Varien_ObjectTest extends PHPUnit_Framework_TestCase
         );
     }
 
-    /**
-     * A temp method to test getData(). Will be reworked with the development of setData() and
-     * appropriate constructor.
-     */
-    public function testGetData()
-    {
-        $reflection = new ReflectionClass('Varien_Object');
-        $refProperty = $reflection->getProperty('_data');
-        $refProperty->setAccessible(true);
-
-        $object = new Varien_Object();
-
-        // Test that getData() really returns what is needed
-        $data = array(1, 2, 3);
-        $refProperty->setValue($object, $data);
-        $returned = $object->getData();
-        $this->assertEquals($data, $returned);
-
-        // Test that returned values is not linked with internal one
-        $returned[] = 4;
-        $newReturned = $object->getData();
-        $this->assertNotEquals($newReturned, $returned);
-    }
-
     public function testConstructor()
     {
         // Default param
@@ -284,6 +260,8 @@ class Varien_ObjectTest extends PHPUnit_Framework_TestCase
     }
 
     /**
+     * @param array $data
+     * @param array $expected
      * @dataProvider addFullNamesDataProvider
      */
     public function testAddFullNames($data, $expected)
@@ -348,6 +326,109 @@ class Varien_ObjectTest extends PHPUnit_Framework_TestCase
                     'old_property2' => 'new',
                 ),
             ),
+        );
+    }
+
+    /**
+     * @param array $dataToPass
+     * @param array $params
+     * @param mixed $expectedResult
+     * @dataProvider getDataDataProvider
+     */
+    public function testGetData($dataToPass, $params, $expectedResult)
+    {
+        $object = new Varien_Object($dataToPass);
+        $actualResult = call_user_func_array(array($object, 'getData'), $params);
+
+        // Test that getData() really returns what is needed
+        $this->assertSame($expectedResult, $actualResult);
+
+        // Test that returned value is not linked with internal one
+        $actualResult .= 'some_additional_value';
+        $newResult = call_user_func_array(array($object, 'getData'), $params);
+        $this->assertNotEquals($newResult, $actualResult);
+    }
+
+    public static function getDataDataProvider()
+    {
+        return array(
+            'whole data' => array(
+                array(1, 2, 3),
+                array(),
+                array(1, 2, 3),
+            ),
+            'whole data with 1 actual param' => array(
+                array(1, 2, 3),
+                array(''),
+                array(1, 2, 3),
+            ),
+            'whole data with 2 actual params' => array(
+                array(1, 2, 3),
+                array('', ''),
+                array(1, 2, 3),
+            ),
+            'key path' => array(
+                array(
+                    'some_data',
+                    'path' => array(
+                        'to' => array(
+                            'value' => 'retrieved_data'
+                        ),
+                    ),
+                    'another_data'
+                ),
+                array('path/to/value'),
+                'retrieved_data',
+            ),
+            'wrong key path, ending with slash' => array(
+                array(
+                    'some_data',
+                    'path' => array(
+                        'to' => array(
+                            'value' => 'retrieved_data'
+                        ),
+                    ),
+                    'another_data'
+                ),
+                array('path/to/'),
+                null,
+            ),
+            'wrong key path, with middle slash' => array(
+                array(
+                    'some_data',
+                    'path' => array(
+                        'to' => array(
+                            'value' => 'retrieved_data'
+                        ),
+                    ),
+                    'another_data'
+                ),
+                array('path//value'),
+                null,
+            ),
+            'wrong value type for key path' => array(
+                array(
+                    'some_data',
+                    'path' => array(
+                        'to' => 2
+                    ),
+                    'another_data'
+                ),
+                array('path/to/value'),
+                null,
+            ),
+            'absent value type for key path' => array(
+                array(
+                    'some_data',
+                    'path' => array(
+                        'to' => array('a' => 'b')
+                    ),
+                    'another_data'
+                ),
+                array('path/to/value'),
+                null,
+            ),
+
         );
     }
 }
