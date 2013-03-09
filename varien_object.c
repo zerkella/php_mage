@@ -492,7 +492,7 @@ PHP_METHOD(Varien_Object, _construct)
 }
 
 // Check whether key contains '/', and if true, then accept $key = 'a/b/c' as query for $this->_data['a']['b']['c']
-int getData_fetch_by_path_key(zval *data, char *key, uint key_len, zval *return_value)
+int getData_fetch_by_path_key(zval *data, char *key, uint key_len, zval *return_value TSRMLS_DC)
 {
 	/*
 	---PHP---
@@ -578,6 +578,47 @@ int getData_fetch_by_path_key(zval *data, char *key, uint key_len, zval *return_
 	return TRUE;
 }
 
+
+// Get value by $key, and optionally, if $index is passed, then engage old index functionality
+int getData_fetch_by_key_and_index(zval *data, char *key, uint key_len, char *index, uint index_len, zval *return_value TSRMLS_DC)
+{
+	/*
+	---PHP---
+	if (isset($this->_data[$key])) {
+		if (is_null($index)) {
+			return $this->_data[$key];
+		}
+
+		$value = $this->_data[$key];
+		if (is_array($value)) {
+			if (isset($value[$index])) {
+				return $value[$index];
+			}
+			return null;
+		} elseif (is_string($value)) {
+			$arr = explode("\n", $value);
+			return (isset($arr[$index]) && (!empty($arr[$index]) || strlen($arr[$index]) > 0)) ? $arr[$index] : null;
+		} elseif ($value instanceof Varien_Object) {
+			return $value->getData($index);
+		}
+		return $default;
+	}
+	return $default;
+	*/
+
+	HashTable *ht_data;
+	zval **value;
+
+	ht_data = Z_ARRVAL_P(data);
+	if (zend_symtable_find(ht_data, key, key_len + 1, (void **) &value) == FAILURE) {
+		ZVAL_NULL(return_value);
+		return TRUE;
+	}
+
+	MAKE_COPY_ZVAL(value, return_value);
+	return TRUE;
+}
+
 // public function getData($key='', $index=null)
 PHP_METHOD(Varien_Object, getData)
 {
@@ -586,7 +627,7 @@ PHP_METHOD(Varien_Object, getData)
 	zend_bool is_return_whole_data = FALSE;
 
 	char *key = NULL, *index = NULL;
-	uint key_len, index_len;
+	uint key_len = 0, index_len = 0;
 
 	int parse_result;
 	zval **data;
@@ -619,10 +660,15 @@ PHP_METHOD(Varien_Object, getData)
 	} 
 	
 	// Key passed contains '/'
-	if (getData_fetch_by_path_key(*data, key, key_len, return_value)) {
+	if (getData_fetch_by_path_key(*data, key, key_len, return_value TSRMLS_CC)) {
 		return;
 	}
 
-	// Support for old-old-old "index" parameter
-	RETURN_LONG(33);
+	// Extract $this->_data[$key]
+	if (getData_fetch_by_key_and_index(*data, key, key_len, index, index_len, return_value TSRMLS_CC)) {
+		return;
+	}
+
+	// Nothing applicable found - just return NULL
+	RETURN_NULL();
 }

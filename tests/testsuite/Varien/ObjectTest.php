@@ -428,7 +428,33 @@ class Varien_ObjectTest extends PHPUnit_Framework_TestCase
                 array('path/to/value'),
                 null,
             ),
-
+            'get data by string key' => array(
+                array(
+                    'one' => 1,
+                    'two' => 2,
+                    3 => 4,
+                ),
+                array('two'),
+                2
+            ),
+            'get data by int key' => array(
+                array(
+                    'one' => 1,
+                    'two' => 2,
+                    3 => 4,
+                ),
+                array(3),
+                4
+            ),
+            'get data by with null param for index' => array(
+                array(
+                    'one' => 1,
+                    'two' => 2,
+                    3 => 4,
+                ),
+                array('two', null),
+                2
+            ),
         );
     }
 }
