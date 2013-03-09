@@ -542,7 +542,7 @@ int getData_fetch_by_path_key(zval *data, char *key, uint key_len, zval *return_
 		if (Z_TYPE_PP(current_zval) == IS_ARRAY) {
 			ht = Z_ARRVAL_PP(current_zval);
 			search_key = estrndup(current_key, current_key_len); // So we have key with "\0" at end, which is needed for array hash
-			result = zend_hash_find(ht, search_key, current_key_len + 1, (void **) &current_zval);
+			result = zend_symtable_find(ht, search_key, current_key_len + 1, (void **) &current_zval);
 			efree(search_key);
 			if (result == FAILURE) {
 				ZVAL_NULL(return_value);

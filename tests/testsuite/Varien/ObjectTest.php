@@ -380,6 +380,19 @@ class Varien_ObjectTest extends PHPUnit_Framework_TestCase
                 array('path/to/value'),
                 'retrieved_data',
             ),
+            'key path with integers' => array(
+                array(
+                    'some_data',
+                    '1' => array(
+                        '2' => array(
+                            '3' => 'retrieved_data'
+                        ),
+                    ),
+                    'another_data'
+                ),
+                array('1/2/3'),
+                'retrieved_data',
+            ),
             'wrong key path, ending with slash' => array(
                 array(
                     'some_data',
