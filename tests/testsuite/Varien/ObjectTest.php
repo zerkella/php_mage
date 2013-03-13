@@ -468,6 +468,15 @@ class Varien_ObjectTest extends PHPUnit_Framework_TestCase
                 array('two', null),
                 2
             ),
+            'get data by non-existing key' => array(
+                array(
+                    'one' => 1,
+                    'two' => 2,
+                    3 => 4,
+                ),
+                array('five'),
+                null
+            ),
         );
     }
 }
