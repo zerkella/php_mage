@@ -606,8 +606,10 @@ int getData_fetch_by_key_and_index(zval *data, char *key, uint key_len, char *in
 	return $default;
 	*/
 
-	HashTable *ht_data;
-	zval **value;
+	HashTable *ht_data, *ht_value;
+	zval **value, **index_val_pp;
+	zval *index_val_p = NULL;
+	zval *param_zval;
 
 	ht_data = Z_ARRVAL_P(data);
 	if (zend_symtable_find(ht_data, key, key_len + 1, (void **) &value) == FAILURE) {
@@ -615,7 +617,38 @@ int getData_fetch_by_key_and_index(zval *data, char *key, uint key_len, char *in
 		return TRUE;
 	}
 
-	MAKE_COPY_ZVAL(value, return_value);
+	if (!index) {
+		MAKE_COPY_ZVAL(value, return_value);
+		return TRUE;
+	}
+
+	// Depending on value - choose how to fetch data by index
+	if (Z_TYPE_PP(value) == IS_ARRAY) {
+		ht_value = Z_ARRVAL_PP(value);
+		if (zend_symtable_find(ht_value, index, index_len + 1, (void **) &index_val_pp) == FAILURE) {
+			ZVAL_NULL(return_value);
+			return TRUE;
+		}
+		MAKE_COPY_ZVAL(index_val_pp, return_value);
+		return TRUE;
+	}
+
+	if ((Z_TYPE_PP(value) == IS_OBJECT) && (instanceof_function(Z_OBJCE_PP(value), vo_class TSRMLS_CC))) {
+		ALLOC_INIT_ZVAL(param_zval);
+		ZVAL_STRINGL(param_zval, index, index_len, FALSE);
+		zend_call_method_with_1_params(value, Z_OBJCE_PP(value), NULL, "getdata", &index_val_p, param_zval);
+		FREE_ZVAL(param_zval);
+		if (!index_val_p) {
+			ZVAL_NULL(return_value);
+			return TRUE;
+		}
+		MAKE_COPY_ZVAL(&index_val_p, return_value);
+		zval_ptr_dtor(&index_val_p);
+		return TRUE;
+	}
+
+	// Nothing applicable, to be fetched by index, is found
+	ZVAL_NULL(return_value);
 	return TRUE;
 }
 

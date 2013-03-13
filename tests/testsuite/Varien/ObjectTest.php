@@ -477,6 +477,48 @@ class Varien_ObjectTest extends PHPUnit_Framework_TestCase
                 array('five'),
                 null
             ),
+            'get data by key and string index, array value' => array(
+                array(
+                    'array' => array('one' => 1, 'two' => 2),
+                ),
+                array('array', 'one'),
+                1
+            ),
+            'get data by key and int index, array value' => array(
+                array(
+                    'array' => array(1 => 'one', 2 => 'two'),
+                ),
+                array('array', 1),
+                'one',
+            ),
+            'get data by key and non-existing index, array value' => array(
+                array(
+                    'array' => array(1 => 'one', 2 => 'two'),
+                ),
+                array('array', 3),
+                null,
+            ),
+            'get data by key and string index, Varien_Object value' => array(
+                array(
+                    'array' => new Varien_Object(array('one' => 1, 'two' => 2)),
+                ),
+                array('array', 'one'),
+                1
+            ),
+            'get data by key and int index, Varien_Object value' => array(
+                array(
+                    'array' => new Varien_Object(array(1 => 'one', 2 => 'two')),
+                ),
+                array('array', 1),
+                'one',
+            ),
+            'get data by key and non-existing index, Varien_Object value' => array(
+                array(
+                    'array' => new Varien_Object(array(1 => 'one', 2 => 'two')),
+                ),
+                array('array', 3),
+                null,
+            ),
         );
     }
 }
