@@ -498,6 +498,48 @@ class Varien_ObjectTest extends PHPUnit_Framework_TestCase
                 array('array', 3),
                 null,
             ),
+            'get data by key and string index, string value' => array(
+                array(
+                    'string' => "AAA\nBBB\nCCC",
+                ),
+                array('string', '2'),
+                'CCC'
+            ),
+            'get data by key and int index, string value' => array(
+                array(
+                    'string' => "AAA\nBBB\nCCC",
+                ),
+                array('string', 2),
+                'CCC',
+            ),
+            'get data by key and non-existing index, string value' => array(
+                array(
+                    'string' => "AAA\nBBB\nCCC",
+                ),
+                array('array', 3),
+                null,
+            ),
+            'get data by key and non-existing non-number index, string value' => array(
+                array(
+                    'string' => "AAA\nBBB\nCCC",
+                ),
+                array('array', "not_existing"),
+                null,
+            ),
+            'get data by key and index, string empty value' => array(
+                array(
+                    'string' => '',
+                ),
+                array('array', 0),
+                null,
+            ),
+            'get data by key and index, corresponding empty value in string' => array(
+                array(
+                    'string' => "AAA\n\nBBB",
+                ),
+                array('array', 1),
+                null,
+            ),
             'get data by key and string index, Varien_Object value' => array(
                 array(
                     'array' => new Varien_Object(array('one' => 1, 'two' => 2)),
@@ -517,6 +559,20 @@ class Varien_ObjectTest extends PHPUnit_Framework_TestCase
                     'array' => new Varien_Object(array(1 => 'one', 2 => 'two')),
                 ),
                 array('array', 3),
+                null,
+            ),
+            'get data by key and index, non-supported bool value' => array(
+                array(
+                    'bool' => true,
+                ),
+                array('bool', 0),
+                null,
+            ),
+            'get data by key and index, non-supported object value' => array(
+                array(
+                    'obj' => new StdClass(),
+                ),
+                array('obj', 0),
                 null,
             ),
         );

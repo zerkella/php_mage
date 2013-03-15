@@ -606,10 +606,14 @@ int getData_fetch_by_key_and_index(zval *data, char *key, uint key_len, char *in
 	return $default;
 	*/
 
-	HashTable *ht_data, *ht_value;
+	HashTable *ht_data, *ht_value, *ht;
 	zval **value, **index_val_pp;
 	zval *index_val_p = NULL;
 	zval *param_zval;
+	zend_fcall_info fci;
+	zend_fcall_info_cache fcc;
+	zval *explode, *eol, *exploded;
+	zval **explode_params[2];
 
 	ht_data = Z_ARRVAL_P(data);
 	if (zend_symtable_find(ht_data, key, key_len + 1, (void **) &value) == FAILURE) {
@@ -623,6 +627,7 @@ int getData_fetch_by_key_and_index(zval *data, char *key, uint key_len, char *in
 	}
 
 	// Depending on value - choose how to fetch data by index
+	//---Value is array - get by index-------------------------
 	if (Z_TYPE_PP(value) == IS_ARRAY) {
 		ht_value = Z_ARRVAL_PP(value);
 		if (zend_symtable_find(ht_value, index, index_len + 1, (void **) &index_val_pp) == FAILURE) {
@@ -633,6 +638,48 @@ int getData_fetch_by_key_and_index(zval *data, char *key, uint key_len, char *in
 		return TRUE;
 	}
 
+	//---Value is string - explode it by "\n" and get by index-------------------
+	if (Z_TYPE_PP(value) == IS_STRING) {
+		if (!Z_STRLEN_PP(value)) {
+			ZVAL_NULL(return_value);
+			return TRUE;
+		}
+
+		MAKE_STD_ZVAL(explode);
+		ZVAL_STRINGL(explode, "explode", sizeof("explode") - 1, 0);
+		if (SUCCESS == zend_fcall_info_init(explode, 0, &fci, &fcc, NULL, NULL TSRMLS_CC)) {
+			MAKE_STD_ZVAL(eol);
+			ZVAL_STRINGL(eol, "\n", 1, 0);
+			explode_params[0] = &eol;
+			explode_params[1] = value;
+			fci.param_count = 2;
+			fci.params = explode_params;
+			fci.retval_ptr_ptr = &exploded;
+			
+			zend_call_function(&fci, &fcc TSRMLS_CC);
+			FREE_ZVAL(eol);
+
+			if (Z_TYPE_P(exploded) == IS_ARRAY) {
+				ht = Z_ARRVAL_P(exploded);
+				if (zend_symtable_find(ht, index, index_len + 1, (void **) &index_val_pp) == SUCCESS) {
+					MAKE_COPY_ZVAL(index_val_pp, return_value);
+				} else {
+					ZVAL_NULL(return_value);
+				}
+			} else {
+				ZVAL_NULL(return_value);
+			}
+
+			zval_ptr_dtor(&exploded);
+		} else {
+			ZVAL_NULL(return_value);
+		}
+		FREE_ZVAL(explode);
+
+		return TRUE;
+	}
+
+	//---Value is Varien_Object - get result by calling getData()-------------------
 	if ((Z_TYPE_PP(value) == IS_OBJECT) && (instanceof_function(Z_OBJCE_PP(value), vo_class TSRMLS_CC))) {
 		ALLOC_INIT_ZVAL(param_zval);
 		ZVAL_STRINGL(param_zval, index, index_len, FALSE);
@@ -647,7 +694,7 @@ int getData_fetch_by_key_and_index(zval *data, char *key, uint key_len, char *in
 		return TRUE;
 	}
 
-	// Nothing applicable, to be fetched by index, is found
+	//---Found something, which cannot be fetched by index-----------------
 	ZVAL_NULL(return_value);
 	return TRUE;
 }
