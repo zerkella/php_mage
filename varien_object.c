@@ -48,11 +48,18 @@ PHP_METHOD(Varien_Object, _prepareSyncFieldsMap);
 PHP_METHOD(Varien_Object, _addFullNames);
 PHP_METHOD(Varien_Object, _construct);
 PHP_METHOD(Varien_Object, getData);
+PHP_METHOD(Varien_Object, setData);
+PHP_METHOD(Varien_Object, hasDataChanges);
 
 ZEND_BEGIN_ARG_INFO_EX(vo_getData_arg_info, 0, 0, 0)
 	ZEND_ARG_INFO(0, key)
 	ZEND_ARG_INFO(0, index)
-	ZEND_END_ARG_INFO()
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(vo_setData_arg_info, 0, 0, 1)
+	ZEND_ARG_INFO(0, key)
+	ZEND_ARG_INFO(0, value)
+ZEND_END_ARG_INFO()
 
 static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, __construct, NULL, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
@@ -60,7 +67,9 @@ static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, _prepareSyncFieldsMap, NULL, ZEND_ACC_PROTECTED)
 	PHP_ME(Varien_Object, _addFullNames, NULL, ZEND_ACC_PROTECTED)
 	PHP_ME(Varien_Object, _construct, NULL, ZEND_ACC_PROTECTED)
-	PHP_ME(Varien_Object, getData, vo_getData_arg_info, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
+	PHP_ME(Varien_Object, getData, vo_getData_arg_info, ZEND_ACC_PUBLIC)
+	PHP_ME(Varien_Object, setData, vo_setData_arg_info, ZEND_ACC_PUBLIC)
+	PHP_ME(Varien_Object, hasDataChanges, NULL, ZEND_ACC_PUBLIC)
 	PHP_FE_END
 };
 
@@ -751,4 +760,51 @@ PHP_METHOD(Varien_Object, getData)
 
 	// Nothing applicable found - just return NULL
 	RETURN_NULL();
+}
+
+// public function setData($key, $value=null)
+PHP_METHOD(Varien_Object, setData)
+{
+	/* ---PHP---
+    $this->_hasDataChanges = true;
+    if(is_array($key)) {
+        $this->_data = $key;
+        $this->_addFullNames();
+    } else {
+        $this->_data[$key] = $value;
+        if (isset($this->_syncFieldsMap[$key])) {
+            $fullFieldName = $this->_syncFieldsMap[$key];
+            $this->_data[$fullFieldName] = $value;
+        }
+    }
+    return $this;
+	*/
+
+	zval *obj_zval = getThis();
+	zend_class_entry *obj_ce = Z_OBJCE_P(obj_zval);
+
+	// Raise _hasDataChange
+	zend_update_property_bool(obj_ce, obj_zval, "_hasDataChanges", sizeof("_hasDataChanges") - 1, TRUE TSRMLS_CC);
+
+	// Return
+	if (return_value_used) {
+		MAKE_COPY_ZVAL(&obj_zval, return_value);
+	}
+}
+
+// public function hasDataChanges()
+PHP_METHOD(Varien_Object, hasDataChanges)
+{
+	/* ---PHP---
+    return $this->_hasDataChanges;
+	*/
+
+	zval *obj_zval = getThis();
+	zend_class_entry *obj_ce = Z_OBJCE_P(obj_zval);
+	zval *has_data_changes;
+
+	if (return_value_used) {
+		has_data_changes = zend_read_property(obj_ce, obj_zval, "_hasDataChanges", sizeof("_hasDataChanges") - 1, FALSE TSRMLS_CC);
+		MAKE_COPY_ZVAL(&has_data_changes, return_value);
+	}
 }

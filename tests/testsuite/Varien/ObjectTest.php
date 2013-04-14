@@ -52,6 +52,8 @@ class Varien_ObjectTest extends PHPUnit_Framework_TestCase
             array('_addFullNames', array('protected')),
             array('_construct', array('protected')),
             array('getData', array('public')),
+            array('setData', array('public')),
+            array('hasDataChanges', array('public')),
         );
     }
 
@@ -576,5 +578,19 @@ class Varien_ObjectTest extends PHPUnit_Framework_TestCase
                 null,
             ),
         );
+    }
+
+    public function testSetDataRaisesChangesFlag()
+    {
+        $object = new Varien_Object();
+        $this->assertFalse($object->hasDataChanges(), 'Object must be non-changed by default');
+        $object->setData('a', 'b');
+        $this->assertTrue($object->hasDataChanges(), 'Object must has changes after setting data to it');
+    }
+
+    public function testSetDataReturnsSelf()
+    {
+        $object = new Varien_Object();
+        $this->assertSame($object, $object->setData('a', 'b'));
     }
 }
