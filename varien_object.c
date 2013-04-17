@@ -3,17 +3,17 @@
 #include "varien_object.h"
 #include "temp.h"
 
-#define INTERNAL_ARR_DEF -97623086 // Default value for array properties, so we know when it was redeclared in subclass
+#define INTERNAL_ARR_DEF -97623086 /* Default value for array properties, so we know when it was redeclared in subclass */
 
-// ---Protected property declarations-------
-// Dynamically calculated internal name of property and its hash
+/* ---Protected property declarations-------*/
+/* Dynamically calculated internal name of property and its hash */
 typedef struct {
 	char *name;
 	int name_len;
 	ulong hash;
 } vo_property_info_t;
 
-// Declaration of properties
+/* Declaration of properties */
 typedef struct {
 	char *name;
 	uint name_len;
@@ -22,13 +22,13 @@ typedef struct {
 	vo_property_info_t *internal_info;
 } vo_property_declaration_entry_t;
 
-// Macros for property declarations
+/* Macros for property declarations */
 #define VO_DECLARE_PROP_ARRAY(property_name, num_buckets_initially) {#property_name, sizeof(#property_name) - 1, IS_ARRAY, num_buckets_initially, NULL}
 #define VO_DECLARE_PROP_BOOL(property_name, value) {#property_name, sizeof(#property_name) - 1, IS_BOOL, value, NULL}
 #define VO_DECLARE_PROP_NULL(property_name) {#property_name, sizeof(#property_name) - 1, IS_NULL, 0, NULL}
 #define VO_DECLARE_PROP_END {NULL, 0, 0, 0, NULL}
 
-// Property declaration
+/* Property declaration */
 static vo_property_declaration_entry_t vo_property_declarations[] = {
 	VO_DECLARE_PROP_ARRAY(_data, 16),
 	VO_DECLARE_PROP_BOOL(_hasDataChanges, FALSE),
@@ -41,7 +41,7 @@ static vo_property_declaration_entry_t vo_property_declarations[] = {
 	VO_DECLARE_PROP_END
 };
 
-//---Methods declaration---
+/*---Methods declaration---*/
 PHP_METHOD(Varien_Object, __construct);
 PHP_METHOD(Varien_Object, _initOldFieldsMap);
 PHP_METHOD(Varien_Object, _prepareSyncFieldsMap);
@@ -73,19 +73,19 @@ static const zend_function_entry vo_methods[] = {
 	PHP_FE_END
 };
 
-//---Used variables---
+/*---Used variables---*/
 static zend_class_entry *vo_class;
 static int vo_def_props_num;
 static vo_property_info_t *vo_data_property_info;
 
-// Forward declarations
+/* Forward declarations */
 static zend_object_value vo_create_handler(zend_class_entry *class_type TSRMLS_DC);
 static void vo_create_default_array_properties(zend_object_value *obj_value TSRMLS_DC);
 static vo_property_info_t *get_protected_property_info(const char *name, int name_len, int persistent);
 static zend_bool def_property_redeclared(const zval *obj_zval, const zend_class_entry *class_type, const vo_property_declaration_entry_t *property_declaration);
 static int vo_callback_make_syncFieldsMap(zval **zv TSRMLS_DC, int num_args, va_list args, zend_hash_key *hash_key);
 
-// Pseudo functions
+/* Pseudo functions */
 #define vo_extract_data_property(obj_zval_p, data_zval_ppp) \
 { \
 	if (zend_hash_quick_find(Z_OBJPROP_P(obj_zval_p), vo_data_property_info->name, vo_data_property_info->name_len, vo_data_property_info->hash, (void**)data_zval_ppp) == FAILURE) { \
@@ -93,14 +93,14 @@ static int vo_callback_make_syncFieldsMap(zval **zv TSRMLS_DC, int num_args, va_
 	} \
 }
 
-// Module initialization. Register Varien_Object class.
+/* Module initialization. Register Varien_Object class. */
 int mage_varien_object_minit(TSRMLS_D)
 {
 	zend_class_entry ce;
 	int i;
 	vo_property_declaration_entry_t *prop_declaration;
 
-	//---Class---
+	/*---Class---*/
 	INIT_CLASS_ENTRY(ce, "Varien_Object", vo_methods);
 	vo_class = zend_register_internal_class(&ce TSRMLS_CC);
 
@@ -110,8 +110,8 @@ int mage_varien_object_minit(TSRMLS_D)
 	*/
 	vo_class->create_object = vo_create_handler;
 
-	//---Properties---
-	// Note: array properties are initialized to arrays in create_handler
+	/*---Properties---*/
+	/* Note: array properties are initialized to arrays in create_handler */
 	for (i = 0; ; i++) {
 		prop_declaration = &vo_property_declarations[i];
 		if (!prop_declaration->name_len) {
@@ -138,41 +138,41 @@ int mage_varien_object_minit(TSRMLS_D)
 		prop_declaration->internal_info = get_protected_property_info(prop_declaration->name, prop_declaration->name_len, 1); 
 	};
 
-	// Optimization - cache different values
+	/* Optimization - cache different values */
 	vo_def_props_num = zend_hash_num_elements(&vo_class->default_properties);
 	vo_data_property_info = get_protected_property_info("_data", sizeof("_data") - 1, TRUE);
 
 	return SUCCESS;
 }
 
-// Returns hash of a protected property, searching it in the array of properties
+/* Returns hash of a protected property, searching it in the array of properties */
 static vo_property_info_t *get_protected_property_info(const char *name, int name_len, int persistent) 
 {
 	vo_property_info_t *result;
 	result = pemalloc(sizeof(vo_property_info_t), persistent);
-	zend_mangle_property_name(&result->name, &result->name_len, "*", 1, name, name_len, TRUE); // * = protected property
-	result->name_len++; // Somehow additional \0 at the end also should be counted
+	zend_mangle_property_name(&result->name, &result->name_len, "*", 1, name, name_len, TRUE); /* Star (*) means protected property */
+	result->name_len++; /* Somehow additional \0 at the end also should be counted */
 	result->hash = zend_get_hash_value(result->name, result->name_len);
 	return result;
 }
 
-// Custom handler, called on Varien_Object creation. Initializes default properties that must have array type.
+/* Custom handler, called on Varien_Object creation. Initializes default properties that must have array type. */
 static zend_object_value vo_create_handler(zend_class_entry *class_type TSRMLS_DC)
 {
 	zend_object *object;
 	zend_object_value retval;
 	zval *tmp;
 
-	// Standard initialization
+	/* Standard initialization */
 	retval = zend_objects_new(&object, class_type TSRMLS_CC);
 	zend_object_std_init(object, class_type TSRMLS_CC);
 	
-	// Copy class properties
+	/* Copy class properties */
 	ALLOC_HASHTABLE(object->properties);
 	zend_hash_init(object->properties, vo_def_props_num, NULL, ZVAL_PTR_DTOR, FALSE);
 	zend_hash_copy(object->properties, &class_type->default_properties, zval_copy_property_ctor(class_type), (void *) &tmp, sizeof(zval *));
 
-	// Update properties that must be arrays by default
+	/* Update properties that must be arrays by default */
 	vo_create_default_array_properties(&retval TSRMLS_CC);
 
 	return retval;
@@ -207,7 +207,7 @@ static inline void vo_create_default_array_properties(zend_object_value *obj_val
 		}
 
 		ALLOC_HASHTABLE(ht);
-		if (zend_hash_init(ht, prop_declaration->default_value, NULL, ZVAL_PTR_DTOR, TRUE) == FAILURE) { // Optimization - pre-allocate buffer for "default_value" buckets
+		if (zend_hash_init(ht, prop_declaration->default_value, NULL, ZVAL_PTR_DTOR, TRUE) == FAILURE) { /* Optimization - pre-allocate buffer for "default_value" buckets */
 			FREE_HASHTABLE(ht);
 			php_error_docref(NULL TSRMLS_CC, E_ERROR, "Unable to init HashTable for object default property");
 		}
@@ -218,7 +218,7 @@ static inline void vo_create_default_array_properties(zend_object_value *obj_val
 
 		zend_update_property(vo_class, obj_zval, prop_declaration->name, prop_declaration->name_len, array_property TSRMLS_CC);
 
-		zval_ptr_dtor(&array_property); // It has been saved saved as object's property, so just decrease refcount
+		zval_ptr_dtor(&array_property); /* It has been saved saved as object's property, so just decrease refcount */
 	}
 
 	FREE_ZVAL(obj_zval);
@@ -228,11 +228,11 @@ static zend_bool def_property_redeclared(const zval *obj_zval, const zend_class_
 	zval **def_property;
 
 	if (class_type == vo_class) {
-		return FALSE; // This is our own class
+		return FALSE; /* This is our own class */
 	}
 	
 	if (zend_hash_quick_find(&class_type->default_properties, property_declaration->internal_info->name, property_declaration->internal_info->name_len, property_declaration->internal_info->hash, (void **) &def_property) == FAILURE) {
-		return TRUE; // Internal name was changed, which means that protected access changed to public, which means property was redeclared
+		return TRUE; /* Internal name was changed, which means that protected access changed to public, which means property was redeclared */
 	}
 
 	if ((Z_TYPE_PP(def_property) == IS_LONG) && (Z_LVAL_PP(def_property) == INTERNAL_ARR_DEF)) {
@@ -242,7 +242,7 @@ static zend_bool def_property_redeclared(const zval *obj_zval, const zend_class_
 	return TRUE;
 }
 
-//public function __construct()
+/* public function __construct() */
 PHP_METHOD(Varien_Object, __construct)
 {
 	zval *obj_zval = getThis();
@@ -304,12 +304,12 @@ PHP_METHOD(Varien_Object, __construct)
 	zend_call_method_with_0_params(&obj_zval, obj_ce, NULL, "_construct", NULL);
 }
 
-//protected function _initOldFieldsMap()
+/* protected function _initOldFieldsMap() */
 PHP_METHOD(Varien_Object, _initOldFieldsMap)
 {
 }
 
-//protected function _prepareSyncFieldsMap()
+/* protected function _prepareSyncFieldsMap() */
 PHP_METHOD(Varien_Object, _prepareSyncFieldsMap)
 {
 	zval *obj_zval = getThis();
@@ -329,7 +329,7 @@ PHP_METHOD(Varien_Object, _prepareSyncFieldsMap)
 		php_error_docref(NULL TSRMLS_CC, E_ERROR, "_oldFieldsMap is not an array, while processing it through _prepareSyncFieldsMap() method");
 	}
 
-	// Create new zval for syncFieldsMap 
+	/* Create new zval for syncFieldsMap */
 	num_sync_elements = zend_hash_num_elements(Z_ARRVAL_P(oldFieldsMap));
 	ALLOC_HASHTABLE(ht_for_property);
 	if (zend_hash_init(ht_for_property, num_sync_elements * 2, NULL, ZVAL_PTR_DTOR, FALSE) == FAILURE) {
@@ -339,20 +339,20 @@ PHP_METHOD(Varien_Object, _prepareSyncFieldsMap)
 
 	syncFieldsMap = zend_read_property(obj_ce, obj_zval, "_syncFieldsMap", sizeof("_syncFieldsMap") - 1, FALSE TSRMLS_CC);
 	if (!Z_ISREF_P(syncFieldsMap) && (Z_REFCOUNT_P(syncFieldsMap) > 1)) {
-		// Create new zval and set it to object
+		/* Create new zval and set it to object */
 		ALLOC_INIT_ZVAL(syncFieldsMap);
 		zend_update_property(obj_ce, obj_zval, "_syncFieldsMap", sizeof("_syncFieldsMap") - 1, syncFieldsMap TSRMLS_CC);
 	} else {
-		// Keep current zval, just clean its current content
+		/* Keep current zval, just clean its current content */
 		zval_dtor(syncFieldsMap);
 	}
 	Z_TYPE_P(syncFieldsMap) = IS_ARRAY;
 	Z_ARRVAL_P(syncFieldsMap) = ht_for_property;
 	
-	// Copy values from oldFieldsMap
+	/* Copy values from oldFieldsMap */
 	zend_hash_copy(ht_for_property, Z_ARRVAL_P(oldFieldsMap), zval_add_ref, NULL, sizeof(zval *));
 	
-	// Add flipped pairs from oldFieldsMap
+	/* Add flipped pairs from oldFieldsMap */
 	zend_hash_apply_with_arguments(Z_ARRVAL_P(oldFieldsMap) TSRMLS_CC, vo_callback_make_syncFieldsMap, 1, ht_for_property);
 
 	/*
@@ -366,13 +366,13 @@ PHP_METHOD(Varien_Object, _prepareSyncFieldsMap)
 	}
 }
 
-// Put the flipped key->val to the table, which is passed as additional argument
+/* Put the flipped key->val to the table, which is passed as additional argument */
 static int vo_callback_make_syncFieldsMap(zval **zv TSRMLS_DC, int num_args, va_list args, zend_hash_key *hash_key)
 {
 	zval *new_zval;
 	HashTable *target = va_arg(args, HashTable*);
 
-	// Create new zval, which contains the key
+	/* Create new zval, which contains the key */
 	ALLOC_INIT_ZVAL(new_zval);
 	if (hash_key->nKeyLength) {
 		Z_TYPE_P(new_zval) = IS_STRING;
@@ -383,8 +383,8 @@ static int vo_callback_make_syncFieldsMap(zval **zv TSRMLS_DC, int num_args, va_
 		Z_LVAL_P(new_zval) = hash_key->h;
 	}
 
-	// Put it either under hash string, or index, depending on zval extracted
-	// "update" is used instead of "add", so we don't need to react, if the key already exists
+	/* Put it either under hash string, or index, depending on zval extracted.
+	   "update" is used instead of "add", so we don't need to react, if the key already exists */
 	switch (Z_TYPE_PP(zv)) {
 		case IS_STRING:
 			zend_hash_update(target, Z_STRVAL_PP(zv), Z_STRLEN_PP(zv) + 1, &new_zval, sizeof(zval *), NULL);
@@ -399,7 +399,7 @@ static int vo_callback_make_syncFieldsMap(zval **zv TSRMLS_DC, int num_args, va_
 	return ZEND_HASH_APPLY_KEEP;
 }
 
-//protected function _addFullNames()
+/* protected function _addFullNames() */
 PHP_METHOD(Varien_Object, _addFullNames)
 {
 	/*
@@ -430,7 +430,7 @@ PHP_METHOD(Varien_Object, _addFullNames)
 	zval *tmp_zval;
 	int found_result;
 
-	// Extract and check properties
+	/* Extract and check properties */
 	vo_extract_data_property(obj_zval, &data);
 	if (Z_TYPE_PP(data) != IS_ARRAY) {
 		php_error_docref(NULL TSRMLS_CC, E_ERROR, "_data property must be array");
@@ -450,14 +450,14 @@ PHP_METHOD(Varien_Object, _addFullNames)
 		return;
 	}
 
-	// Iterate over syncFieldsMap and find the keys, that need to be synced
+	/* Iterate over syncFieldsMap and find the keys, that need to be synced */
 	ht_syncFieldsMap = Z_ARRVAL_P(syncFieldsMap);
 	ht_data = Z_ARRVAL_PP(data);
 	for (zend_hash_internal_pointer_reset(ht_syncFieldsMap); zend_hash_has_more_elements(ht_syncFieldsMap) == SUCCESS; zend_hash_move_forward(ht_syncFieldsMap)) {
-		// Extract current key
+		/* Extract current key */
 		key_type = zend_hash_get_current_key_ex(ht_syncFieldsMap, &current_key, &current_key_len, &current_index, FALSE, NULL);
 
-		// Find, whether same key exists in _data
+		/* Find, whether same key exists in _data */
 		if (key_type == HASH_KEY_IS_LONG) {
 			found_result = zend_hash_index_find(ht_data, current_index, (void **) &found_zval);
 		} else {
@@ -467,7 +467,7 @@ PHP_METHOD(Varien_Object, _addFullNames)
 			continue;
 		}
 
-		// Prepare zval to be synced to another key
+		/* Prepare zval to be synced to another key */
 		if (Z_ISREF_PP(found_zval)) {
 			ALLOC_ZVAL(tmp_zval);
 			MAKE_COPY_ZVAL(found_zval, tmp_zval);
@@ -476,10 +476,10 @@ PHP_METHOD(Varien_Object, _addFullNames)
 			Z_ADDREF_PP(found_zval);
 		}
 
-		// Extract value, which means the key, where data must be synced to
+		/* Extract value, which means the key, where data must be synced to */
 		zend_hash_get_current_data(ht_syncFieldsMap, (void **) &current_data);
 
-		// Sync the data
+		/* Sync the data */
 		switch (Z_TYPE_PP(current_data)) {
 			case IS_LONG:
 				zend_hash_index_update(ht_data, Z_LVAL_PP(current_data), found_zval, sizeof(zval *), NULL);
@@ -495,12 +495,12 @@ PHP_METHOD(Varien_Object, _addFullNames)
 	}
 }
 
-//protected function _construct()
+/* protected function _construct() */
 PHP_METHOD(Varien_Object, _construct)
 {
 }
 
-// Check whether key contains '/', and if true, then accept $key = 'a/b/c' as query for $this->_data['a']['b']['c']
+/* Check whether key contains '/', and if true, then accept $key = 'a/b/c' as query for $this->_data['a']['b']['c'] */
 int getData_fetch_by_path_key(zval *data, char *key, uint key_len, zval *return_value TSRMLS_DC)
 {
 	/*
@@ -550,7 +550,7 @@ int getData_fetch_by_path_key(zval *data, char *key, uint key_len, zval *return_
 
 		if (Z_TYPE_PP(current_zval) == IS_ARRAY) {
 			ht = Z_ARRVAL_PP(current_zval);
-			search_key = estrndup(current_key, current_key_len); // So we have key with "\0" at end, which is needed for array hash
+			search_key = estrndup(current_key, current_key_len); /* So we have key with "\0" at end, which is needed for array hash */
 			result = zend_symtable_find(ht, search_key, current_key_len + 1, (void **) &current_zval);
 			efree(search_key);
 			if (result == FAILURE) {
@@ -565,7 +565,7 @@ int getData_fetch_by_path_key(zval *data, char *key, uint key_len, zval *return_
 			return TRUE;
 		}
 
-		// Prepare data for next iteration
+		/* Prepare data for next iteration */
 		current_key += current_key_len + 1;
 		
 		if (current_key == key_end + 1) {
@@ -588,7 +588,7 @@ int getData_fetch_by_path_key(zval *data, char *key, uint key_len, zval *return_
 }
 
 
-// Get value by $key, and optionally, if $index is passed, then engage old index functionality
+/* Get value by $key, and optionally, if $index is passed, then engage old index functionality */
 int getData_fetch_by_key_and_index(zval *data, char *key, uint key_len, char *index, uint index_len, zval *return_value TSRMLS_DC)
 {
 	/*
@@ -635,8 +635,8 @@ int getData_fetch_by_key_and_index(zval *data, char *key, uint key_len, char *in
 		return TRUE;
 	}
 
-	// Depending on value - choose how to fetch data by index
-	//---Value is array - get by index-------------------------
+	/* Depending on value - choose how to fetch data by index */
+	/*---Value is array - get by index-------------------------*/
 	if (Z_TYPE_PP(value) == IS_ARRAY) {
 		ht_value = Z_ARRVAL_PP(value);
 		if (zend_symtable_find(ht_value, index, index_len + 1, (void **) &index_val_pp) == FAILURE) {
@@ -647,7 +647,7 @@ int getData_fetch_by_key_and_index(zval *data, char *key, uint key_len, char *in
 		return TRUE;
 	}
 
-	//---Value is string - explode it by "\n" and get by index-------------------
+	/*---Value is string - explode it by "\n" and get by index-------------------*/
 	if (Z_TYPE_PP(value) == IS_STRING) {
 		if (!Z_STRLEN_PP(value)) {
 			ZVAL_NULL(return_value);
@@ -688,7 +688,7 @@ int getData_fetch_by_key_and_index(zval *data, char *key, uint key_len, char *in
 		return TRUE;
 	}
 
-	//---Value is Varien_Object - get result by calling getData()-------------------
+	/*---Value is Varien_Object - get result by calling getData()-------------------*/
 	if ((Z_TYPE_PP(value) == IS_OBJECT) && (instanceof_function(Z_OBJCE_PP(value), vo_class TSRMLS_CC))) {
 		ALLOC_INIT_ZVAL(param_zval);
 		ZVAL_STRINGL(param_zval, index, index_len, FALSE);
@@ -703,12 +703,12 @@ int getData_fetch_by_key_and_index(zval *data, char *key, uint key_len, char *in
 		return TRUE;
 	}
 
-	//---Found something, which cannot be fetched by index-----------------
+	/*---Found something, which cannot be fetched by index-----------------*/
 	ZVAL_NULL(return_value);
 	return TRUE;
 }
 
-// public function getData($key='', $index=null)
+/*public function getData($key='', $index=null)*/
 PHP_METHOD(Varien_Object, getData)
 {
 	zval *object = getThis();
@@ -739,30 +739,30 @@ PHP_METHOD(Varien_Object, getData)
 		is_return_whole_data = TRUE;
 	}
 
-	// Process different cases what to return
+	/*Process different cases what to return*/
 	vo_extract_data_property(object, &data);
 
-	// Whole data is requested
+	/* Whole data is requested */
 	if (is_return_whole_data) {
 		MAKE_COPY_ZVAL(data, return_value);
 		return;
 	} 
 	
-	// Key passed contains '/'
+	/* Key passed contains '/' */
 	if (getData_fetch_by_path_key(*data, key, key_len, return_value TSRMLS_CC)) {
 		return;
 	}
 
-	// Extract $this->_data[$key]
+	/* Extract $this->_data[$key] */
 	if (getData_fetch_by_key_and_index(*data, key, key_len, index, index_len, return_value TSRMLS_CC)) {
 		return;
 	}
 
-	// Nothing applicable found - just return NULL
+	/* Nothing applicable found - just return NULL */
 	RETURN_NULL();
 }
 
-// public function setData($key, $value=null)
+/* public function setData($key, $value=null) */
 PHP_METHOD(Varien_Object, setData)
 {
 	/* ---PHP---
@@ -787,10 +787,10 @@ PHP_METHOD(Varien_Object, setData)
 	zval *key_zval, *value_zval;
 	int parse_result;
 
-	// Raise _hasDataChanges
+	/* Raise _hasDataChanges */
 	zend_update_property_bool(obj_ce, obj_zval, "_hasDataChanges", sizeof("_hasDataChanges") - 1, TRUE TSRMLS_CC);
 	
-	// Process params
+	/* Process params */
 	parse_result = zend_parse_parameters(num_args TSRMLS_CC, "z|z", &key_zval, &value_zval);
 	if (parse_result == FAILURE) {
 		php_error_docref(NULL TSRMLS_CC, E_ERROR, "Couldn't parse parameters of setData() call");
@@ -803,13 +803,13 @@ PHP_METHOD(Varien_Object, setData)
 		php_error_docref(NULL TSRMLS_CC, E_ERROR, "Not implemented yet!");
 	}
 
-	// Return
+	/* Return */
 	if (return_value_used) {
 		MAKE_COPY_ZVAL(&obj_zval, return_value);
 	}
 }
 
-// public function hasDataChanges()
+/* public function hasDataChanges() */
 PHP_METHOD(Varien_Object, hasDataChanges)
 {
 	/* ---PHP---
