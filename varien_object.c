@@ -782,9 +782,26 @@ PHP_METHOD(Varien_Object, setData)
 
 	zval *obj_zval = getThis();
 	zend_class_entry *obj_ce = Z_OBJCE_P(obj_zval);
+	int num_args = ZEND_NUM_ARGS();
+	
+	zval *key_zval, *value_zval;
+	int parse_result;
 
-	// Raise _hasDataChange
+	// Raise _hasDataChanges
 	zend_update_property_bool(obj_ce, obj_zval, "_hasDataChanges", sizeof("_hasDataChanges") - 1, TRUE TSRMLS_CC);
+	
+	// Process params
+	parse_result = zend_parse_parameters(num_args TSRMLS_CC, "z|z", &key_zval, &value_zval);
+	if (parse_result == FAILURE) {
+		php_error_docref(NULL TSRMLS_CC, E_ERROR, "Couldn't parse parameters of setData() call");
+	}
+
+	if (Z_TYPE_P(key_zval) == IS_ARRAY) {
+		zend_update_property(obj_ce, obj_zval, "_data", sizeof("_data") - 1, key_zval TSRMLS_CC);
+		zend_call_method_with_0_params(&obj_zval, obj_ce, NULL, "_addfullnames", NULL);
+	} else {
+		php_error_docref(NULL TSRMLS_CC, E_ERROR, "Not implemented yet!");
+	}
 
 	// Return
 	if (return_value_used) {

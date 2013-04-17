@@ -584,13 +584,81 @@ class Varien_ObjectTest extends PHPUnit_Framework_TestCase
     {
         $object = new Varien_Object();
         $this->assertFalse($object->hasDataChanges(), 'Object must be non-changed by default');
-        $object->setData('a', 'b');
+        $object->setData(array());
         $this->assertTrue($object->hasDataChanges(), 'Object must has changes after setting data to it');
     }
 
     public function testSetDataReturnsSelf()
     {
         $object = new Varien_Object();
-        $this->assertSame($object, $object->setData('a', 'b'));
+        $this->assertSame($object, $object->setData(array()));
     }
+
+    /**
+     * @param string $class
+     * @param array $data
+     * @param array $expectedData
+     * @dataProvider setDataSingleArgumentDataProvider
+     */
+    public function testSetDataSingleArgument($class, $data, $expectedData)
+    {
+        $object = new $class();
+        $object->setData($data);
+        $actualData = $object->getData();
+        $this->assertEquals($expectedData, $actualData);
+    }
+
+    /**
+     * @return array
+     */
+    public static function setDataSingleArgumentDataProvider()
+    {
+        return array(
+            'ordinary set data' => array (
+                'Varien_Object',
+                array('a' => 'b', 1 => 2),
+                array('a' => 'b', 1 => 2),
+            ),
+            'dynamic old fields map' => array(
+                'Varien_Object_Descendant_OldFieldsMap_Dynamic',
+                array('a' => 'a_value', 222 => '222_value', 'just_a_key' => 'just_a_value'),
+                array('a' => 'a_value', 'b' => 'a_value', 222 => '222_value', 111 => '222_value',
+                    'just_a_key' => 'just_a_value'),
+            ),
+            'static old fields map' => array(
+                'Varien_Object_Descendant_OldFieldsMap_Static',
+                array('h' => 'h_value', 333 => '333_value', 'just_a_key' => 'just_a_value'),
+                array('h' => 'h_value', 'g' => 'h_value', 333 => '333_value', 444 => '333_value',
+                    'just_a_key' => 'just_a_value'),
+            ),
+        );
+    }
+
+    public function testSetDataSingleArgumentWithRefcount()
+    {
+        $data = array('a' => 'b');
+        $dataCopy = $data;
+
+        $object = new Varien_Object();
+        $object->setData($dataCopy);
+        $data['a'] = 'c';
+        $actualData = $object->getData();
+
+        $this->assertEquals(array('a' => 'b'), $actualData, 'setData() must not keep references to the passed value');
+    }
+
+    public function testSetDataSingleArgumentWithIsRef()
+    {
+        $data = array('a' => 'b');
+        $dataCopy = &$data;
+
+        $object = new Varien_Object();
+        $object->setData($dataCopy);
+        $data['a'] = 'c';
+        $actualData = $object->getData();
+
+        $this->assertEquals(array('a' => 'b'), $actualData,
+            'setData() must not keep references to the passed value with reference link');
+    }
+
 }
