@@ -331,6 +331,28 @@ class Varien_ObjectTest extends PHPUnit_Framework_TestCase
         );
     }
 
+    public function testAddFullNamesWithReferenceChanges()
+    {
+        $oldProperty = 'a';
+        $oldNumProperty = 1;
+        $data = array('old_property1' => &$oldProperty, 111 => &$oldNumProperty);
+        $object = new Varien_Object_Descendant_AddFullNames($data);
+
+        // Change referenced values
+        $oldProperty = 'b';
+        $oldNumProperty = 2;
+
+        // Verify, that referenced values (and only them) have changed inside the object
+        $actual = $object->getData();
+        $expected = array(
+            'old_property1' => 'b',
+            'new_property1' => 'a',
+            111 => 2,
+            333 => 1,
+        );
+        $this->assertEquals($expected, $actual);
+    }
+
     /**
      * @param array $dataToPass
      * @param array $params
@@ -660,5 +682,4 @@ class Varien_ObjectTest extends PHPUnit_Framework_TestCase
         $this->assertEquals(array('a' => 'b'), $actualData,
             'setData() must not keep references to the passed value with reference link');
     }
-
 }

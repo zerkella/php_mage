@@ -413,22 +413,32 @@ PHP_METHOD(Varien_Object, _addFullNames)
 	}
 
 	---Interpretation---
-	Go through keys of _data and add its value once again under synced key (if exists)
+	Go through keys of _data, write each synced value under synced key
 	*/
 	zval *obj_zval = getThis();
 	zend_class_entry *obj_ce = Z_OBJCE_P(obj_zval);
 	zval **data;
 	zval *syncFieldsMap;
+	int num_sync_elements;
 	int num_data_elements;
+	int total_to_sync, i;
 	HashTable *ht_data, *ht_syncFieldsMap;
-	int key_type;
+	int current_key_type;
 	ulong current_index;
 	char *current_key;
 	uint current_key_len;
-	zval **current_data;
 	zval **found_zval;
-	zval *tmp_zval;
 	int found_result;
+	zval **sync_to;
+
+	typedef struct {
+		char *key_name;
+		uint key_name_len;
+		ulong key_hash;
+		zval *value;
+	} key_info_t;
+	key_info_t *copy_to_keys;
+	key_info_t *key_info; 
 
 	/* Extract and check properties */
 	vo_extract_data_property(obj_zval, &data);
@@ -446,19 +456,22 @@ PHP_METHOD(Varien_Object, _addFullNames)
 		php_error_docref(NULL TSRMLS_CC, E_ERROR, "_syncFieldsMap property must be array");
 	}
 
-	if (!zend_hash_num_elements(Z_ARRVAL_P(syncFieldsMap))) {
+	num_sync_elements = zend_hash_num_elements(Z_ARRVAL_P(syncFieldsMap));
+	if (!num_sync_elements) {
 		return;
 	}
 
-	/* Iterate over syncFieldsMap and find the keys, that need to be synced */
+	/* Iterate over syncFieldsMap and find the keys, to which we will sync values from _data. */
 	ht_syncFieldsMap = Z_ARRVAL_P(syncFieldsMap);
 	ht_data = Z_ARRVAL_PP(data);
+	copy_to_keys = emalloc(num_sync_elements * sizeof(key_info_t)); /* Allocate maximal possible array to hold things we will sync */
+	total_to_sync = 0;
 	for (zend_hash_internal_pointer_reset(ht_syncFieldsMap); zend_hash_has_more_elements(ht_syncFieldsMap) == SUCCESS; zend_hash_move_forward(ht_syncFieldsMap)) {
 		/* Extract current key */
-		key_type = zend_hash_get_current_key_ex(ht_syncFieldsMap, &current_key, &current_key_len, &current_index, FALSE, NULL);
+		current_key_type = zend_hash_get_current_key_ex(ht_syncFieldsMap, &current_key, &current_key_len, &current_index, FALSE, NULL);
 
-		/* Find, whether same key exists in _data */
-		if (key_type == HASH_KEY_IS_LONG) {
+		/* Try to extract the value at _data[key]. Success means, that we have something to sync. */
+		if (current_key_type == HASH_KEY_IS_LONG) {
 			found_result = zend_hash_index_find(ht_data, current_index, (void **) &found_zval);
 		} else {
 			found_result = zend_hash_find(ht_data, current_key, current_key_len, (void **) &found_zval);
@@ -467,30 +480,43 @@ PHP_METHOD(Varien_Object, _addFullNames)
 			continue;
 		}
 
-		/* Prepare zval to be synced to another key */
-		if (Z_ISREF_PP(found_zval)) {
-			ALLOC_ZVAL(tmp_zval);
-			MAKE_COPY_ZVAL(found_zval, tmp_zval);
-			found_zval = &tmp_zval;
-		} else {
-			Z_ADDREF_PP(found_zval);
-		}
+		/* Extract the "sync to" from _syncFieldsMap - i.e. the key, where the data value must be synced to */
+		zend_hash_get_current_data(ht_syncFieldsMap, (void **) &sync_to);
 
-		/* Extract value, which means the key, where data must be synced to */
-		zend_hash_get_current_data(ht_syncFieldsMap, (void **) &current_data);
-
-		/* Sync the data */
-		switch (Z_TYPE_PP(current_data)) {
+		key_info = &copy_to_keys[total_to_sync];
+		switch (Z_TYPE_PP(sync_to)) {
 			case IS_LONG:
-				zend_hash_index_update(ht_data, Z_LVAL_PP(current_data), found_zval, sizeof(zval *), NULL);
+				key_info->key_name = NULL;
+				key_info->key_hash = Z_LVAL_PP(sync_to);
 				break;
 			case IS_STRING:
-				zend_hash_update(ht_data, Z_STRVAL_PP(current_data), Z_STRLEN_PP(current_data) + 1, found_zval, sizeof(zval *), NULL); 
+				key_info->key_name = Z_STRVAL_PP(sync_to);
+				key_info->key_name_len = Z_STRLEN_PP(sync_to);
 				break;
 			default:
-				zval_dtor(*found_zval);
+				efree(copy_to_keys);
 				php_error_docref(NULL TSRMLS_CC, E_ERROR, "_syncFieldsMap entries may be of INTEGER or STRING type only");
 				break;
+		}
+		key_info->value = *found_zval;
+		total_to_sync++;
+	}
+
+	/* Now go through the extracted keys and sync the values to them */
+	for (i = 0; i < total_to_sync; i++) {
+		key_info = &copy_to_keys[i];
+
+		/* Prepare zval to be synced to another key */
+		Z_ADDREF_P(key_info->value);
+		if (Z_ISREF_P(key_info->value)) {
+			SEPARATE_ZVAL(&key_info->value);
+		}
+
+		/* Copy value to synced key */
+		if (key_info->key_name == NULL) {
+			zend_hash_index_update(ht_data, key_info->key_hash, &key_info->value, sizeof(zval *), NULL);
+		} else {
+			zend_hash_update(ht_data, key_info->key_name, key_info->key_name_len + 1, &key_info->value, sizeof(zval *), NULL);
 		}
 	}
 }
