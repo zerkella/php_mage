@@ -375,12 +375,9 @@ static int vo_callback_make_syncFieldsMap(zval **zv TSRMLS_DC, int num_args, va_
 	/* Create new zval, which contains the key */
 	ALLOC_INIT_ZVAL(new_zval);
 	if (hash_key->nKeyLength) {
-		Z_TYPE_P(new_zval) = IS_STRING;
-		Z_STRLEN_P(new_zval) = hash_key->nKeyLength - 1;
-		Z_STRVAL_P(new_zval) = estrndup(hash_key->arKey, hash_key->nKeyLength - 1);
+		ZVAL_STRINGL(new_zval, hash_key->arKey, hash_key->nKeyLength - 1, TRUE);
 	} else {
-		Z_TYPE_P(new_zval) = IS_LONG;
-		Z_LVAL_P(new_zval) = hash_key->h;
+		ZVAL_LONG(new_zval, hash_key->h);
 	}
 
 	/* Put it either under hash string, or index, depending on zval extracted.
