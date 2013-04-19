@@ -555,7 +555,8 @@ int getData_fetch_by_path_key(zval *data, char *key, uint key_len, zval *return_
 	zval **current_zval;
 	HashTable *ht;
 	int result;
-	
+	zval *param_zval;
+
 	key_end = key + key_len - 1;
 	found = php_memnstr(key, "/", 1, key_end);
 	if (!found) {
@@ -580,9 +581,11 @@ int getData_fetch_by_path_key(zval *data, char *key, uint key_len, zval *return_
 				ZVAL_NULL(return_value);
 				return TRUE;
 			}
-		} else if (Z_TYPE_PP(current_zval) == IS_OBJECT) {
-
-
+		} else if ((Z_TYPE_PP(current_zval) == IS_OBJECT) && (instanceof_function(Z_OBJCE_PP(current_zval), vo_class TSRMLS_CC))) {
+			ALLOC_INIT_ZVAL(param_zval);
+			ZVAL_STRINGL(param_zval, current_key, current_key_len, TRUE);
+			zend_call_method_with_1_params(current_zval, Z_OBJCE_PP(current_zval), NULL, "getdata", current_zval, param_zval);
+			zval_ptr_dtor(&param_zval);
 		} else {
 			ZVAL_NULL(return_value);
 			return TRUE;
@@ -762,7 +765,7 @@ PHP_METHOD(Varien_Object, getData)
 		is_return_whole_data = TRUE;
 	}
 
-	/*Process different cases what to return*/
+	/* Process different cases what to return */
 	vo_extract_data_property(object, &data);
 
 	/* Whole data is requested */
