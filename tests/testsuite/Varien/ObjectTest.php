@@ -270,7 +270,7 @@ class Varien_ObjectTest extends PHPUnit_Framework_TestCase
     {
         $object = new Varien_Object_Descendant_AddFullNames($data);
         $actual = $object->getData();
-        $this->assertEquals($expected, $actual);
+        $this->assertSame($expected, $actual);
     }
 
     /**
@@ -290,6 +290,8 @@ class Varien_ObjectTest extends PHPUnit_Framework_TestCase
 
         $dataReferenced = $data;
         $dataReferenced['some_property'] = &$dataReferenced['old_property1'];
+
+        $objectToSet = new StdClass;
 
         return array(
             'usual data' => array(
@@ -326,6 +328,15 @@ class Varien_ObjectTest extends PHPUnit_Framework_TestCase
                     'new_property1' => 'old',
                     333 => 99,
                     'old_property2' => 'new',
+                ),
+            ),
+            'data with object' => array(
+                'data' => array(
+                    'old_property1' => $objectToSet,
+                ),
+                'expected' => array(
+                    'old_property1' => $objectToSet,
+                    'new_property1' => $objectToSet,
                 ),
             ),
         );
