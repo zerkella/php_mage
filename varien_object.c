@@ -809,9 +809,13 @@ PHP_METHOD(Varien_Object, setData)
 	zval *obj_zval = getThis();
 	zend_class_entry *obj_ce = Z_OBJCE_P(obj_zval);
 	int num_args = ZEND_NUM_ARGS();
-	
-	zval *key_zval, *value_zval;
+
+	zval *key_zval, *value_zval = NULL;
+	zval *tmp_zval;
 	int parse_result;
+	
+	zval **data;
+	HashTable *ht_data;
 
 	/* Raise _hasDataChanges */
 	zend_update_property_bool(obj_ce, obj_zval, "_hasDataChanges", sizeof("_hasDataChanges") - 1, TRUE TSRMLS_CC);
@@ -826,7 +830,38 @@ PHP_METHOD(Varien_Object, setData)
 		zend_update_property(obj_ce, obj_zval, "_data", sizeof("_data") - 1, key_zval TSRMLS_CC);
 		zend_call_method_with_0_params(&obj_zval, obj_ce, NULL, "_addfullnames", NULL);
 	} else {
-		php_error_docref(NULL TSRMLS_CC, E_ERROR, "Not implemented yet!");
+		/* Extract and check property */
+		vo_extract_data_property(obj_zval, &data);
+		if (Z_TYPE_PP(data) != IS_ARRAY) {
+			php_error_docref(NULL TSRMLS_CC, E_ERROR, "_data property must be array");
+		}
+		ht_data = Z_ARRVAL_PP(data);
+
+		if (!value_zval) {
+			ALLOC_INIT_ZVAL(value_zval);
+			ZVAL_NULL(value_zval);
+		} else {
+			Z_ADDREF_P(value_zval);
+		}
+		if (Z_TYPE_P(key_zval) == IS_LONG) {
+			zend_hash_index_update(ht_data, Z_LVAL_P(key_zval), &value_zval, sizeof(zval *), NULL);
+		} else {
+			tmp_zval = NULL;
+			if (Z_TYPE_P(key_zval) != IS_STRING) {
+				ALLOC_ZVAL(tmp_zval);
+				MAKE_COPY_ZVAL(&key_zval, tmp_zval);
+				key_zval = tmp_zval;
+				convert_to_string(key_zval);
+			}
+
+			zend_symtable_update(ht_data, Z_STRVAL_P(key_zval), Z_STRLEN_P(key_zval) + 1, &value_zval, sizeof(zval *), NULL);
+
+			if (tmp_zval != NULL) {
+				zval_dtor(tmp_zval);
+			}
+
+			// TODO: sync value according to sync fields map
+		}
 	}
 
 	/* Return */
