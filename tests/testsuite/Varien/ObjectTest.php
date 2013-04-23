@@ -765,6 +765,18 @@ class Varien_ObjectTest extends PHPUnit_Framework_TestCase
                 'value',
                 array('key' => 'value')
             ),
+            'sync with integer key' => array(
+                'Varien_Object_Descendant_AddFullNames',
+                111,
+                'value',
+                array(111 => 'value', 333 => 'value')
+            ),
+            'sync with string key' => array(
+                'Varien_Object_Descendant_AddFullNames',
+                'new_property2',
+                'value',
+                array('new_property2' => 'value', 'old_property2' => 'value')
+            ),
         );
     }
 

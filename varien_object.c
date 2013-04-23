@@ -817,6 +817,12 @@ PHP_METHOD(Varien_Object, setData)
 	zval **data;
 	HashTable *ht_data;
 
+	zval *syncFieldsMap;
+	HashTable *ht_syncFieldsMap;
+	zval **sync_to_key;
+	zval *tmp_sync_to_key;
+	int found_result;
+
 	/* Raise _hasDataChanges */
 	zend_update_property_bool(obj_ce, obj_zval, "_hasDataChanges", sizeof("_hasDataChanges") - 1, TRUE TSRMLS_CC);
 	
@@ -843,10 +849,11 @@ PHP_METHOD(Varien_Object, setData)
 		} else {
 			Z_ADDREF_P(value_zval);
 		}
+
+		tmp_zval = NULL;
 		if (Z_TYPE_P(key_zval) == IS_LONG) {
 			zend_hash_index_update(ht_data, Z_LVAL_P(key_zval), &value_zval, sizeof(zval *), NULL);
 		} else {
-			tmp_zval = NULL;
 			if (Z_TYPE_P(key_zval) != IS_STRING) {
 				ALLOC_ZVAL(tmp_zval);
 				MAKE_COPY_ZVAL(&key_zval, tmp_zval);
@@ -855,12 +862,48 @@ PHP_METHOD(Varien_Object, setData)
 			}
 
 			zend_symtable_update(ht_data, Z_STRVAL_P(key_zval), Z_STRLEN_P(key_zval) + 1, &value_zval, sizeof(zval *), NULL);
+		}
 
-			if (tmp_zval != NULL) {
-				zval_dtor(tmp_zval);
+		/* Sync value according to sync fields map */
+		syncFieldsMap = zend_read_property(obj_ce, obj_zval, "_syncFieldsMap", sizeof("_syncFieldsMap") - 1, FALSE TSRMLS_CC);
+		if (!syncFieldsMap || (Z_TYPE_P(syncFieldsMap) != IS_ARRAY)) {
+			php_error_docref(NULL TSRMLS_CC, E_ERROR, "_syncFieldsMap property must be array");
+		}
+		ht_syncFieldsMap = Z_ARRVAL_P(syncFieldsMap);
+
+		/* Find the keys, to which we will sync values from _data. */
+		if (Z_TYPE_P(key_zval) == IS_LONG) {
+			found_result = zend_hash_index_find(ht_syncFieldsMap, Z_LVAL_P(key_zval), (void **) &sync_to_key);
+		} else {
+			found_result = zend_hash_find(ht_syncFieldsMap, Z_STRVAL_P(key_zval), Z_STRLEN_P(key_zval) + 1, (void **) &sync_to_key);
+		}
+
+		if (found_result == SUCCESS) {
+			/* Put the value to the _data[sync_to_key] */
+			Z_ADDREF_P(value_zval);
+
+			if (Z_TYPE_PP(sync_to_key) == IS_LONG) {
+				zend_hash_index_update(ht_data, Z_LVAL_PP(sync_to_key), &value_zval, sizeof(zval *), NULL);
+			} else {
+				tmp_sync_to_key = NULL;
+				if (Z_TYPE_PP(sync_to_key) != IS_STRING) {
+					ALLOC_ZVAL(tmp_sync_to_key);
+					MAKE_COPY_ZVAL(sync_to_key, tmp_sync_to_key);
+					sync_to_key = &tmp_sync_to_key;
+					convert_to_string(*sync_to_key);
+				}
+
+				zend_symtable_update(ht_data, Z_STRVAL_PP(sync_to_key), Z_STRLEN_PP(sync_to_key) + 1, &value_zval, sizeof(zval *), NULL);
+
+				if (tmp_sync_to_key != NULL) {
+					zval_dtor(tmp_sync_to_key);
+				}
 			}
+		}
 
-			// TODO: sync value according to sync fields map
+		/* Free temp resources */
+		if (tmp_zval != NULL) {
+			zval_dtor(tmp_zval);
 		}
 	}
 
