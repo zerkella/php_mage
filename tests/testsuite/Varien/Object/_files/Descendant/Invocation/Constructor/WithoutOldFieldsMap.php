@@ -2,12 +2,13 @@
 /**
  * Outputs messages in the methods that are supposed to be invoked in the constructor.
  * So it is possible to verify, that all the methods are executed, and in correct order.
+ *
+ * There is no map of old fields, so one method must not be invoked there.
  */
-class Varien_Object_Descendant_Invocation_Constructor_General extends Varien_Object
+class Zerkella_PhpMage_Varien_Object_Descendant_Invocation_Constructor_WithoutOldFieldsMap extends Varien_Object
 {
     protected function _initOldFieldsMap()
     {
-        $this->_oldFieldsMap = array('a' => 'b', 'c' => 'd');
         echo "_initOldFieldsMap()\n";
     }
 

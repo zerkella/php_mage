@@ -2,7 +2,7 @@
 /**
  * The class, which dynamically sets $_oldFieldsMap property
  */
-class Varien_Object_Descendant_OldFieldsMap_Dynamic extends Varien_Object
+class Zerkella_PhpMage_Varien_Object_Descendant_OldFieldsMap_Dynamic extends Varien_Object
 {
     protected function _initOldFieldsMap()
     {

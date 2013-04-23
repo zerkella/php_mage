@@ -2,7 +2,7 @@
 /**
  * The file redeclares some properties of Varien_Object
  */
-class Varien_Object_Descendant_Properties extends Varien_Object
+class Zerkella_PhpMage_Varien_Object_Descendant_Properties extends Varien_Object
 {
 
     protected $_idFieldName = 'some_id';
