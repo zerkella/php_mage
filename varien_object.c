@@ -50,6 +50,7 @@ PHP_METHOD(Varien_Object, _construct);
 PHP_METHOD(Varien_Object, getData);
 PHP_METHOD(Varien_Object, setData);
 PHP_METHOD(Varien_Object, hasDataChanges);
+PHP_METHOD(Varien_Object, isDeleted);
 
 ZEND_BEGIN_ARG_INFO_EX(vo_getData_arg_info, 0, 0, 0)
 	ZEND_ARG_INFO(0, key)
@@ -61,6 +62,10 @@ ZEND_BEGIN_ARG_INFO_EX(vo_setData_arg_info, 0, 0, 1)
 	ZEND_ARG_INFO(0, value)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(vo_isDeleted_arg_info, 0, 0, 0)
+	ZEND_ARG_INFO(0, isDeleted)
+ZEND_END_ARG_INFO()
+
 static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, __construct, NULL, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
 	PHP_ME(Varien_Object, _initOldFieldsMap, NULL, ZEND_ACC_PROTECTED)
@@ -70,6 +75,7 @@ static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, getData, vo_getData_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, setData, vo_setData_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, hasDataChanges, NULL, ZEND_ACC_PUBLIC)
+	PHP_ME(Varien_Object, isDeleted, vo_isDeleted_arg_info, ZEND_ACC_PUBLIC)
 	PHP_FE_END
 };
 
@@ -927,5 +933,44 @@ PHP_METHOD(Varien_Object, hasDataChanges)
 	if (return_value_used) {
 		has_data_changes = zend_read_property(obj_ce, obj_zval, "_hasDataChanges", sizeof("_hasDataChanges") - 1, FALSE TSRMLS_CC);
 		MAKE_COPY_ZVAL(&has_data_changes, return_value);
+	}
+}
+
+/* public function isDeleted($isDeleted=null) */
+PHP_METHOD(Varien_Object, isDeleted)
+{
+	/* ---PHP---
+    $result = $this->_isDeleted;
+    if (!is_null($isDeleted)) {
+        $this->_isDeleted = $isDeleted;
+    }
+    return $result;
+	*/
+
+	zval *obj_zval = getThis();
+	zend_class_entry *obj_ce = Z_OBJCE_P(obj_zval);
+	int num_args = ZEND_NUM_ARGS();
+	int parse_result;
+	zval *isDeleted;
+	zval *old_isDeleted;
+
+	if (num_args) {
+		parse_result = zend_parse_parameters(num_args TSRMLS_CC, "z!", &isDeleted);
+		if (parse_result == FAILURE) {
+			php_error_docref(NULL TSRMLS_CC, E_ERROR, "Couldn't parse parameters of isDeleted() call");
+		}
+	} else {
+		isDeleted = NULL;
+	}
+
+	/* Fetch current value */
+	if (return_value_used) {
+		old_isDeleted = zend_read_property(obj_ce, obj_zval, "_isDeleted", sizeof("_isDeleted") - 1, FALSE TSRMLS_CC);
+		MAKE_COPY_ZVAL(&old_isDeleted, return_value);
+	}
+
+	/* Set new value, if requested */
+	if (isDeleted != NULL) {
+		zend_update_property(obj_ce, obj_zval, "_isDeleted", sizeof("_isDeleted") - 1, isDeleted TSRMLS_CC);
 	}
 }
