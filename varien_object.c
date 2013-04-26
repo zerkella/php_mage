@@ -53,6 +53,7 @@ PHP_METHOD(Varien_Object, hasDataChanges);
 PHP_METHOD(Varien_Object, isDeleted);
 PHP_METHOD(Varien_Object, setIdFieldName);
 PHP_METHOD(Varien_Object, getIdFieldName);
+PHP_METHOD(Varien_Object, _getData);
 
 ZEND_BEGIN_ARG_INFO_EX(vo_getData_arg_info, 0, 0, 0)
 	ZEND_ARG_INFO(0, key)
@@ -72,6 +73,10 @@ ZEND_BEGIN_ARG_INFO_EX(vo_setIdFieldName_arg_info, 0, 0, 1)
 	ZEND_ARG_INFO(0, name)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(vo__getData_arg_info, 0, 0, 1)
+	ZEND_ARG_INFO(0, key)
+ZEND_END_ARG_INFO()
+
 static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, __construct, NULL, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
 	PHP_ME(Varien_Object, _initOldFieldsMap, NULL, ZEND_ACC_PROTECTED)
@@ -84,6 +89,7 @@ static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, isDeleted, vo_isDeleted_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, setIdFieldName, vo_setIdFieldName_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, getIdFieldName, NULL, ZEND_ACC_PUBLIC)
+	PHP_ME(Varien_Object, _getData, NULL, ZEND_ACC_PROTECTED)
 	PHP_FE_END
 };
 
@@ -582,7 +588,7 @@ int getData_fetch_by_path_key(zval *data, char *key, uint key_len, zval *return_
 	current_zval = &data;
 	do {
 		if (!current_key_len) {
-			ZVAL_NULL(return_value);
+			RETVAL_NULL();
 			return TRUE;
 		}
 
@@ -592,7 +598,7 @@ int getData_fetch_by_path_key(zval *data, char *key, uint key_len, zval *return_
 			result = zend_symtable_find(ht, search_key, current_key_len + 1, (void **) &current_zval);
 			efree(search_key);
 			if (result == FAILURE) {
-				ZVAL_NULL(return_value);
+				RETVAL_NULL();
 				return TRUE;
 			}
 		} else if ((Z_TYPE_PP(current_zval) == IS_OBJECT) && (instanceof_function(Z_OBJCE_PP(current_zval), vo_class TSRMLS_CC))) {
@@ -601,7 +607,7 @@ int getData_fetch_by_path_key(zval *data, char *key, uint key_len, zval *return_
 			zend_call_method_with_1_params(current_zval, Z_OBJCE_PP(current_zval), NULL, "getdata", current_zval, param_zval);
 			zval_ptr_dtor(&param_zval);
 		} else {
-			ZVAL_NULL(return_value);
+			RETVAL_NULL();
 			return TRUE;
 		}
 
@@ -666,7 +672,7 @@ int getData_fetch_by_key_and_index(zval *data, char *key, uint key_len, char *in
 
 	ht_data = Z_ARRVAL_P(data);
 	if (zend_symtable_find(ht_data, key, key_len + 1, (void **) &value) == FAILURE) {
-		ZVAL_NULL(return_value);
+		RETVAL_NULL();
 		return TRUE;
 	}
 
@@ -680,7 +686,7 @@ int getData_fetch_by_key_and_index(zval *data, char *key, uint key_len, char *in
 	if (Z_TYPE_PP(value) == IS_ARRAY) {
 		ht_value = Z_ARRVAL_PP(value);
 		if (zend_symtable_find(ht_value, index, index_len + 1, (void **) &index_val_pp) == FAILURE) {
-			ZVAL_NULL(return_value);
+			RETVAL_NULL();
 			return TRUE;
 		}
 		MAKE_COPY_ZVAL(index_val_pp, return_value);
@@ -690,7 +696,7 @@ int getData_fetch_by_key_and_index(zval *data, char *key, uint key_len, char *in
 	/*---Value is string - explode it by "\n" and get by index-------------------*/
 	if (Z_TYPE_PP(value) == IS_STRING) {
 		if (!Z_STRLEN_PP(value)) {
-			ZVAL_NULL(return_value);
+			RETVAL_NULL();
 			return TRUE;
 		}
 
@@ -713,15 +719,15 @@ int getData_fetch_by_key_and_index(zval *data, char *key, uint key_len, char *in
 				if (zend_symtable_find(ht, index, index_len + 1, (void **) &index_val_pp) == SUCCESS) {
 					MAKE_COPY_ZVAL(index_val_pp, return_value);
 				} else {
-					ZVAL_NULL(return_value);
+					RETVAL_NULL();
 				}
 			} else {
-				ZVAL_NULL(return_value);
+				RETVAL_NULL();
 			}
 
 			zval_ptr_dtor(&exploded);
 		} else {
-			ZVAL_NULL(return_value);
+			RETVAL_NULL();
 		}
 		FREE_ZVAL(explode);
 
@@ -735,7 +741,7 @@ int getData_fetch_by_key_and_index(zval *data, char *key, uint key_len, char *in
 		zend_call_method_with_1_params(value, Z_OBJCE_PP(value), NULL, "getdata", &index_val_p, param_zval);
 		FREE_ZVAL(param_zval);
 		if (!index_val_p) {
-			ZVAL_NULL(return_value);
+			RETVAL_NULL();
 			return TRUE;
 		}
 		MAKE_COPY_ZVAL(&index_val_p, return_value);
@@ -744,7 +750,7 @@ int getData_fetch_by_key_and_index(zval *data, char *key, uint key_len, char *in
 	}
 
 	/*---Found something, which cannot be fetched by index-----------------*/
-	ZVAL_NULL(return_value);
+	RETVAL_NULL();
 	return TRUE;
 }
 
@@ -1030,4 +1036,46 @@ PHP_METHOD(Varien_Object, getIdFieldName)
 		idFieldName = zend_read_property(obj_ce, obj_zval, "_idFieldName", sizeof("_idFieldName") - 1, FALSE TSRMLS_CC);
 		MAKE_COPY_ZVAL(&idFieldName, return_value);
 	}
+}
+
+/* protected function _getData($key) */
+PHP_METHOD(Varien_Object, _getData)
+{
+	/* ---PHP---
+    return isset($this->_data[$key]) ? $this->_data[$key] : null;
+	*/
+
+	zval *obj_zval = getThis();
+	int num_args = ZEND_NUM_ARGS();
+	int parse_result;
+	char *key;
+	uint key_len;
+	zval **data;
+	HashTable *ht_data;
+	zval **value;
+
+	if (!return_value_used) {
+		return;
+	}
+
+	if (num_args) {
+		parse_result = zend_parse_parameters(num_args TSRMLS_CC, "s", &key, &key_len);
+		if (parse_result == FAILURE) {
+			php_error_docref(NULL TSRMLS_CC, E_ERROR, "Couldn't parse parameters of _getData() call");
+		}
+	} else {
+		php_error_docref(NULL TSRMLS_CC, E_ERROR, "$key parameter is required");
+	}
+
+	/* Extract and check property */
+	vo_extract_data_property(obj_zval, &data);
+	if (Z_TYPE_PP(data) != IS_ARRAY) {
+		php_error_docref(NULL TSRMLS_CC, E_ERROR, "_data property must be array");
+	}
+	ht_data = Z_ARRVAL_PP(data);
+	
+	if (zend_symtable_find(ht_data, key, key_len + 1, (void **) &value) == FAILURE) {
+		RETURN_NULL();
+	}
+	MAKE_COPY_ZVAL(value, return_value);
 }
