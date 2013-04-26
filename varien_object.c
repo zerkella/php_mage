@@ -51,6 +51,8 @@ PHP_METHOD(Varien_Object, getData);
 PHP_METHOD(Varien_Object, setData);
 PHP_METHOD(Varien_Object, hasDataChanges);
 PHP_METHOD(Varien_Object, isDeleted);
+PHP_METHOD(Varien_Object, setIdFieldName);
+PHP_METHOD(Varien_Object, getIdFieldName);
 
 ZEND_BEGIN_ARG_INFO_EX(vo_getData_arg_info, 0, 0, 0)
 	ZEND_ARG_INFO(0, key)
@@ -66,6 +68,10 @@ ZEND_BEGIN_ARG_INFO_EX(vo_isDeleted_arg_info, 0, 0, 0)
 	ZEND_ARG_INFO(0, isDeleted)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(vo_setIdFieldName_arg_info, 0, 0, 1)
+	ZEND_ARG_INFO(0, name)
+ZEND_END_ARG_INFO()
+
 static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, __construct, NULL, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
 	PHP_ME(Varien_Object, _initOldFieldsMap, NULL, ZEND_ACC_PROTECTED)
@@ -76,6 +82,8 @@ static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, setData, vo_setData_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, hasDataChanges, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, isDeleted, vo_isDeleted_arg_info, ZEND_ACC_PUBLIC)
+	PHP_ME(Varien_Object, setIdFieldName, vo_setIdFieldName_arg_info, ZEND_ACC_PUBLIC)
+	PHP_ME(Varien_Object, getIdFieldName, NULL, ZEND_ACC_PUBLIC)
 	PHP_FE_END
 };
 
@@ -972,5 +980,54 @@ PHP_METHOD(Varien_Object, isDeleted)
 	/* Set new value, if requested */
 	if (isDeleted != NULL) {
 		zend_update_property(obj_ce, obj_zval, "_isDeleted", sizeof("_isDeleted") - 1, isDeleted TSRMLS_CC);
+	}
+}
+
+/* public function setIdFieldName($name) */
+PHP_METHOD(Varien_Object, setIdFieldName)
+{
+	/* ---PHP---
+    $this->_idFieldName = $name;
+    return $this;
+	*/
+
+	zval *obj_zval = getThis();
+	zend_class_entry *obj_ce = Z_OBJCE_P(obj_zval);
+	int num_args = ZEND_NUM_ARGS();
+	int parse_result;
+	zval *name;
+
+	if (num_args) {
+		parse_result = zend_parse_parameters(num_args TSRMLS_CC, "z", &name);
+		if (parse_result == FAILURE) {
+			php_error_docref(NULL TSRMLS_CC, E_ERROR, "Couldn't parse parameters of setIdFieldName() call");
+		}
+	} else {
+		php_error_docref(NULL TSRMLS_CC, E_ERROR, "$name parameter is required");
+	}
+
+	zend_update_property(obj_ce, obj_zval, "_idFieldName", sizeof("_idFieldName") - 1, name TSRMLS_CC);
+
+	if (return_value_used) {
+		Z_TYPE_P(return_value) = IS_OBJECT;
+		Z_OBJVAL_P(return_value) = Z_OBJVAL_P(obj_zval);
+		zval_copy_ctor(return_value);
+	}
+}
+
+/* public function getIdFieldName() */
+PHP_METHOD(Varien_Object, getIdFieldName)
+{
+	/* ---PHP---
+    return $this->_isFieldName;
+	*/
+
+	zval *obj_zval = getThis();
+	zend_class_entry *obj_ce = Z_OBJCE_P(obj_zval);
+	zval *idFieldName;
+
+	if (return_value_used) {
+		idFieldName = zend_read_property(obj_ce, obj_zval, "_idFieldName", sizeof("_idFieldName") - 1, FALSE TSRMLS_CC);
+		MAKE_COPY_ZVAL(&idFieldName, return_value);
 	}
 }
