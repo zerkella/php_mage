@@ -55,6 +55,7 @@ PHP_METHOD(Varien_Object, setIdFieldName);
 PHP_METHOD(Varien_Object, getIdFieldName);
 PHP_METHOD(Varien_Object, getId);
 PHP_METHOD(Varien_Object, setId);
+PHP_METHOD(Varien_Object, addData);
 PHP_METHOD(Varien_Object, _getData);
 
 ZEND_BEGIN_ARG_INFO_EX(vo_getData_arg_info, 0, 0, 0)
@@ -79,6 +80,10 @@ ZEND_BEGIN_ARG_INFO_EX(vo_setId_arg_info, 0, 0, 1)
 	ZEND_ARG_INFO(0, value)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(vo_addData_arg_info, 0, 0, 1)
+	ZEND_ARG_ARRAY_INFO(0, arr, 0)
+ZEND_END_ARG_INFO()
+
 ZEND_BEGIN_ARG_INFO_EX(vo__getData_arg_info, 0, 0, 1)
 	ZEND_ARG_INFO(0, key)
 ZEND_END_ARG_INFO()
@@ -97,6 +102,7 @@ static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, getIdFieldName, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, getId, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, setId, vo_setId_arg_info, ZEND_ACC_PUBLIC)
+	PHP_ME(Varien_Object, addData, vo_addData_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, _getData, NULL, ZEND_ACC_PROTECTED)
 	PHP_FE_END
 };
@@ -1130,6 +1136,66 @@ PHP_METHOD(Varien_Object, setId)
 	id_field_name = retrieve_copy_of_id_field_name(obj_zval, obj_ce TSRMLS_CC);
 	zend_call_method_with_2_params(&obj_zval, obj_ce, NULL, "setdata", NULL, id_field_name, value);
 	zval_ptr_dtor(&id_field_name);
+
+	/* Return self (if needed) */
+	if (return_value_used) {
+		MAKE_COPY_ZVAL(&obj_zval, return_value);
+	}
+}
+
+/* public function addData(array $arr) */
+PHP_METHOD(Varien_Object, addData)
+{
+	/* ---PHP---
+	foreach($arr as $index=>$value) {
+		$this->setData($index, $value);
+	}
+	return $this;
+	*/
+
+	zval *obj_zval = getThis();
+	zend_class_entry *obj_ce = Z_OBJCE_P(obj_zval);
+	int num_args = ZEND_NUM_ARGS();
+	HashTable *ht_arr;
+	int parse_result;
+	int num;
+	int current_key_type;
+	ulong current_index;
+	char *current_key;
+	uint current_key_len;
+	zval *index_zval, **value_zval;
+
+	/* Get passed $arr */
+	if (num_args) {
+		parse_result = zend_parse_parameters(num_args TSRMLS_CC, "h", &ht_arr);
+		if (parse_result == FAILURE) {
+			php_error_docref(NULL TSRMLS_CC, E_ERROR, "Couldn't parse parameter of addData() call");
+		}
+	} else {
+		php_error_docref(NULL TSRMLS_CC, E_ERROR, "$arr parameter is required");
+	}
+
+	num = zend_hash_num_elements(ht_arr);
+	if (num) {
+		ALLOC_INIT_ZVAL(index_zval);
+		for (zend_hash_internal_pointer_reset(ht_arr); zend_hash_has_more_elements(ht_arr) == SUCCESS; zend_hash_move_forward(ht_arr)) {
+			current_key_type = zend_hash_get_current_key_ex(ht_arr, &current_key, &current_key_len, &current_index, FALSE, NULL);
+			if (current_key_type == HASH_KEY_IS_LONG) {
+				ZVAL_LONG(index_zval, current_index); 
+			} else {
+				ZVAL_STRINGL(index_zval, current_key, current_key_len - 1, FALSE); 
+			}
+			
+			zend_hash_get_current_data(ht_arr, (void **) &value_zval);
+
+			zend_call_method_with_2_params(&obj_zval, obj_ce, NULL, "setdata", NULL, index_zval, *value_zval);
+		}
+		/* Free memory. Check not to leave string value, because the string was not duplicated, so its memory doesn't belong to us. */
+		if (Z_TYPE_P(index_zval) == IS_STRING) {
+			ZVAL_NULL(index_zval);
+		}
+		zval_ptr_dtor(&index_zval);
+	}
 
 	/* Return $this */
 	if (return_value_used) {
