@@ -388,9 +388,7 @@ PHP_METHOD(Varien_Object, _prepareSyncFieldsMap)
 	return $this;
 	*/
 	if (return_value_used) {
-		Z_TYPE_P(return_value) = IS_OBJECT;
-		Z_OBJVAL_P(return_value) = Z_OBJVAL_P(obj_zval);
-		zval_copy_ctor(return_value);
+		MAKE_COPY_ZVAL(&obj_zval, return_value);
 	}
 }
 
@@ -935,7 +933,7 @@ PHP_METHOD(Varien_Object, setData)
 		}
 	}
 
-	/* Return */
+	/* Return $this */
 	if (return_value_used) {
 		MAKE_COPY_ZVAL(&obj_zval, return_value);
 	}
@@ -1023,9 +1021,7 @@ PHP_METHOD(Varien_Object, setIdFieldName)
 	zend_update_property(obj_ce, obj_zval, "_idFieldName", sizeof("_idFieldName") - 1, name TSRMLS_CC);
 
 	if (return_value_used) {
-		Z_TYPE_P(return_value) = IS_OBJECT;
-		Z_OBJVAL_P(return_value) = Z_OBJVAL_P(obj_zval);
-		zval_copy_ctor(return_value);
+		MAKE_COPY_ZVAL(&obj_zval, return_value);
 	}
 }
 
@@ -1135,7 +1131,7 @@ PHP_METHOD(Varien_Object, setId)
 	zend_call_method_with_2_params(&obj_zval, obj_ce, NULL, "setdata", NULL, id_field_name, value);
 	zval_ptr_dtor(&id_field_name);
 
-	/* Return self (if needed) */
+	/* Return $this */
 	if (return_value_used) {
 		MAKE_COPY_ZVAL(&obj_zval, return_value);
 	}
