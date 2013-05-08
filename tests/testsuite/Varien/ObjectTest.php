@@ -33,6 +33,7 @@ class Varien_ObjectTest extends PHPUnit_Framework_TestCase
             array('setData', array('public')),
             array('hasDataChanges', array('public')),
             array('isDeleted', array('public')),
+            array('getIdFieldName', array('public')),
             array('setIdFieldName', array('public')),
             array('getId', array('public')),
             array('setId', array('public')),
