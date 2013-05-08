@@ -9,9 +9,9 @@ class Zerkella_PhpMage_Varien_Object_Descendant_Properties extends Varien_Object
 
     protected $_underscoreCache = 123;
 
-    public $_oldFieldsMap = array(4, 5, 6);
+    public $_oldFieldsMap = array(4, 5, 6); // Intentional access escalation
 
-    public $_isDeleted = null;
+    public $_isDeleted = null; // Intentional access escalation
 
     protected $_newProperty = array(7, 8, 9);
 }
