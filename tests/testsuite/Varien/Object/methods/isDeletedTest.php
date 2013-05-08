@@ -1,5 +1,5 @@
 <?php
-class Varien_Object_methods_isDeleted extends PHPUnit_Framework_TestCase
+class Varien_Object_methods_isDeletedTest extends PHPUnit_Framework_TestCase
 {
     public function testIsDeleted()
     {

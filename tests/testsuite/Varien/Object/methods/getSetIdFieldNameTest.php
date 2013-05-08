@@ -1,5 +1,5 @@
 <?php
-class Varien_Object_methods_getSetIdFieldName extends PHPUnit_Framework_TestCase
+class Varien_Object_methods_getSetIdFieldNameTest extends PHPUnit_Framework_TestCase
 {
     public function testGetIdFieldName()
     {

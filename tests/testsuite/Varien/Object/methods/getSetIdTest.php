@@ -1,5 +1,5 @@
 <?php
-class Varien_Object_methods_getSetId extends PHPUnit_Framework_TestCase
+class Varien_Object_methods_getSetIdTest extends PHPUnit_Framework_TestCase
 {
     /**
      * @param array $data
