@@ -53,6 +53,8 @@ PHP_METHOD(Varien_Object, hasDataChanges);
 PHP_METHOD(Varien_Object, isDeleted);
 PHP_METHOD(Varien_Object, setIdFieldName);
 PHP_METHOD(Varien_Object, getIdFieldName);
+PHP_METHOD(Varien_Object, getId);
+PHP_METHOD(Varien_Object, setId);
 PHP_METHOD(Varien_Object, _getData);
 
 ZEND_BEGIN_ARG_INFO_EX(vo_getData_arg_info, 0, 0, 0)
@@ -73,6 +75,10 @@ ZEND_BEGIN_ARG_INFO_EX(vo_setIdFieldName_arg_info, 0, 0, 1)
 	ZEND_ARG_INFO(0, name)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(vo_setId_arg_info, 0, 0, 1)
+	ZEND_ARG_INFO(0, value)
+ZEND_END_ARG_INFO()
+
 ZEND_BEGIN_ARG_INFO_EX(vo__getData_arg_info, 0, 0, 1)
 	ZEND_ARG_INFO(0, key)
 ZEND_END_ARG_INFO()
@@ -89,6 +95,8 @@ static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, isDeleted, vo_isDeleted_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, setIdFieldName, vo_setIdFieldName_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, getIdFieldName, NULL, ZEND_ACC_PUBLIC)
+	PHP_ME(Varien_Object, getId, NULL, ZEND_ACC_PUBLIC)
+	PHP_ME(Varien_Object, setId, vo_setId_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, _getData, NULL, ZEND_ACC_PROTECTED)
 	PHP_FE_END
 };
@@ -1035,6 +1043,101 @@ PHP_METHOD(Varien_Object, getIdFieldName)
 	if (return_value_used) {
 		idFieldName = zend_read_property(obj_ce, obj_zval, "_idFieldName", sizeof("_idFieldName") - 1, FALSE TSRMLS_CC);
 		MAKE_COPY_ZVAL(&idFieldName, return_value);
+	}
+}
+
+/* Return either custom id field name, or "id", which is default */
+inline static zval *retrieve_copy_of_id_field_name(zval *obj_zval, zend_class_entry *obj_ce TSRMLS_DC)
+{
+	zval *id_field_name = NULL;
+	zval *bool_zval;
+	zend_bool is_custom_field = FALSE;
+
+	zend_call_method_with_0_params(&obj_zval, obj_ce, NULL, "getidfieldname", &id_field_name);
+
+	if (id_field_name && !(Z_TYPE_P(id_field_name) == IS_NULL)) {
+		ALLOC_ZVAL(bool_zval);
+		MAKE_COPY_ZVAL(&id_field_name, bool_zval);
+		convert_to_boolean(bool_zval);
+		is_custom_field = Z_BVAL_P(bool_zval);
+		zval_ptr_dtor(&bool_zval);
+	}
+
+	if (!is_custom_field) {
+		if (id_field_name) {
+			zval_ptr_dtor(&id_field_name);
+		}
+		ALLOC_INIT_ZVAL(id_field_name);
+		ZVAL_STRINGL(id_field_name, "id", sizeof("id") - 1, TRUE);
+	}
+
+	return id_field_name;
+}
+
+/* public function getId() */
+PHP_METHOD(Varien_Object, getId)
+{
+	/* ---PHP---
+	if ($this->getIdFieldName()) {
+		return $this->_getData($this->getIdFieldName());
+	}
+	return $this->_getData('id');
+	*/
+
+	zval *obj_zval = getThis();
+	zend_class_entry *obj_ce = Z_OBJCE_P(obj_zval);
+	zval *id_field_name;
+	zval *id;
+
+	if (!return_value_used) {
+		return;
+	}
+
+	id_field_name = retrieve_copy_of_id_field_name(obj_zval, obj_ce TSRMLS_CC);
+	zend_call_method_with_1_params(&obj_zval, obj_ce, NULL, "_getdata", &id, id_field_name);
+	MAKE_COPY_ZVAL(&id, return_value);
+
+	zval_ptr_dtor(&id_field_name);
+	zval_ptr_dtor(&id);
+}
+
+/* public function setId() */
+PHP_METHOD(Varien_Object, setId)
+{
+	/* ---PHP---
+	if ($this->getIdFieldName()) {
+		$this->setData($this->getIdFieldName(), $value);
+	} else {
+		$this->setData('id', $value);
+	}
+	return $this;
+	*/
+
+	zval *obj_zval = getThis();
+	zend_class_entry *obj_ce = Z_OBJCE_P(obj_zval);
+	int num_args = ZEND_NUM_ARGS();
+	zval *id_field_name = NULL;
+	int parse_result;
+	zval *value;
+
+	/* Get passed $value */
+	if (num_args) {
+		parse_result = zend_parse_parameters(num_args TSRMLS_CC, "z", &value);
+		if (parse_result == FAILURE) {
+			php_error_docref(NULL TSRMLS_CC, E_ERROR, "Couldn't parse parameters of getId() call");
+		}
+	} else {
+		php_error_docref(NULL TSRMLS_CC, E_ERROR, "$value parameter is required");
+	}
+
+	/* Set $value to the 'id' field */
+	id_field_name = retrieve_copy_of_id_field_name(obj_zval, obj_ce TSRMLS_CC);
+	zend_call_method_with_2_params(&obj_zval, obj_ce, NULL, "setdata", NULL, id_field_name, value);
+	zval_ptr_dtor(&id_field_name);
+
+	/* Return self (if needed) */
+	if (return_value_used) {
+		MAKE_COPY_ZVAL(&obj_zval, return_value);
 	}
 }
 

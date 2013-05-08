@@ -34,6 +34,8 @@ class Varien_ObjectTest extends PHPUnit_Framework_TestCase
             array('hasDataChanges', array('public')),
             array('isDeleted', array('public')),
             array('setIdFieldName', array('public')),
+            array('getId', array('public')),
+            array('setId', array('public')),
             array('_getData', array('protected')),
         );
     }
