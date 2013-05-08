@@ -293,7 +293,7 @@ PHP_METHOD(Varien_Object, __construct)
 	}
 	*/
 	oldFieldsMap = zend_read_property(obj_ce, obj_zval, "_oldFieldsMap", sizeof("_oldFieldsMap") - 1, FALSE TSRMLS_CC);
-	ALLOC_INIT_ZVAL(tmp_zval);
+	ALLOC_ZVAL(tmp_zval);
 	MAKE_COPY_ZVAL(&oldFieldsMap, tmp_zval);
 	convert_to_boolean(tmp_zval);
 	isOldFieldsMap = Z_BVAL_P(tmp_zval);
