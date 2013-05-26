@@ -57,6 +57,7 @@ PHP_METHOD(Varien_Object, getId);
 PHP_METHOD(Varien_Object, setId);
 PHP_METHOD(Varien_Object, addData);
 PHP_METHOD(Varien_Object, unsetData);
+PHP_METHOD(Varien_Object, unsetOldData);
 PHP_METHOD(Varien_Object, _getData);
 
 ZEND_BEGIN_ARG_INFO_EX(vo_getData_arg_info, 0, 0, 0)
@@ -89,6 +90,10 @@ ZEND_BEGIN_ARG_INFO_EX(vo_unsetData_arg_info, 0, 0, 0)
 	ZEND_ARG_INFO(0, key)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(vo_unsetOldData_arg_info, 0, 0, 0)
+	ZEND_ARG_INFO(0, key)
+ZEND_END_ARG_INFO()
+
 ZEND_BEGIN_ARG_INFO_EX(vo__getData_arg_info, 0, 0, 1)
 	ZEND_ARG_INFO(0, key)
 ZEND_END_ARG_INFO()
@@ -109,6 +114,7 @@ static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, setId, vo_setId_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, addData, vo_addData_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, unsetData, vo_unsetData_arg_info, ZEND_ACC_PUBLIC)
+	PHP_ME(Varien_Object, unsetOldData, vo_unsetOldData_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, _getData, NULL, ZEND_ACC_PROTECTED)
 	PHP_FE_END
 };
@@ -831,7 +837,7 @@ Extract variable value either as long or as string (conversion to string is done
 If extracted as long, then val_str will be NULL. 
 If val_str must be disposed after usage, then dispose_str will be TRUE.
 */
-static inline void expand_to_long_or_string(zval *z, long *val_long, char **val_str, int *val_str_len, zend_bool *is_dispose_str TSRMLS_DC)
+static inline void expand_to_long_or_string(zval *z, long *val_long, char **val_str, uint *val_str_len, zend_bool *is_dispose_str TSRMLS_DC)
 {
 	zval *tmp;
 	if (Z_TYPE_P(z) == IS_LONG) {
@@ -879,7 +885,7 @@ PHP_METHOD(Varien_Object, setData)
 	int parse_result;
 	long key_long;
 	char *key_str;
-	int key_str_len;
+	uint key_str_len;
 	zend_bool is_dispose_key_str;
 	
 	zval **data;
@@ -891,7 +897,7 @@ PHP_METHOD(Varien_Object, setData)
 	int found_result;
 	long sync_long;
 	char *sync_str;
-	int sync_str_len;
+	uint sync_str_len;
 	zend_bool is_dispose_sync_str;
 
 	/* Raise _hasDataChanges */
@@ -1254,7 +1260,7 @@ PHP_METHOD(Varien_Object, unsetData)
 	int parse_result;
 	long key_long, field_long;
 	char *key_str, *field_str;
-	int key_str_len, field_str_len;
+	uint key_str_len, field_str_len;
 	zend_bool is_dispose_key_str, is_dispose_field_str;
 	zval **data;
 	zval **fullFieldName;
@@ -1295,7 +1301,6 @@ PHP_METHOD(Varien_Object, unsetData)
 
 		/* Unset the value from synced key, if any */
 		syncFieldsMap = zend_read_property(obj_ce, obj_zval, "_syncFieldsMap", sizeof("_syncFieldsMap") - 1, FALSE TSRMLS_CC);
-		SEPARATE_ZVAL_IF_NOT_REF(&syncFieldsMap);
 		if (Z_TYPE_P(syncFieldsMap) != IS_ARRAY) {
 			php_error_docref(NULL TSRMLS_CC, E_ERROR, "_syncFieldsMap property must be array");
 		}
@@ -1320,6 +1325,94 @@ PHP_METHOD(Varien_Object, unsetData)
 		}
 
 		/* Free resources */
+		if (is_dispose_key_str) {
+			efree(key_str);
+		}
+	}
+
+	/* Return $this */
+	if (return_value_used) {
+		MAKE_COPY_ZVAL(&obj_zval, return_value);
+	}
+}
+
+/* public function unsetOldData($key=null) */
+PHP_METHOD(Varien_Object, unsetOldData)
+{
+	/* ---PHP---
+    if (is_null($key)) {
+        foreach ($this->_syncFieldsMap as $key => $newFieldName) {
+            unset($this->_data[$key]);
+        }
+    } else {
+        unset($this->_data[$key]);
+    }
+    return $this;
+	*/
+
+	/* Note: bug from the PHP code is fixed in this method - instead of _syncFieldsMap, the _oldFieldsMap is used. */
+	zval *obj_zval = getThis();
+	zend_class_entry *obj_ce = Z_OBJCE_P(obj_zval);
+	int num_args = ZEND_NUM_ARGS();
+	zval *key;
+	HashTable *ht_data;
+	int parse_result;
+	long key_long;
+	char *key_str;
+	uint key_str_len;
+	zend_bool is_dispose_key_str;
+	zval **data;
+	zval *oldFieldsMap;
+	HashTable *ht_oldFieldsMap;
+	int current_key_type;
+	ulong current_index;
+	char *current_key;
+	uint current_key_len;
+
+	if (num_args) {
+		parse_result = zend_parse_parameters(num_args TSRMLS_CC, "z!", &key);
+		if (parse_result == FAILURE) {
+			php_error_docref(NULL TSRMLS_CC, E_ERROR, "Couldn't parse parameters of unsetOldData() call");
+		}
+	} else {
+		key = NULL;
+	}
+
+	/* Fetch data property array */
+	vo_extract_data_property(obj_zval, &data);
+	if (Z_TYPE_PP(data) != IS_ARRAY) {
+		php_error_docref(NULL TSRMLS_CC, E_ERROR, "_data property must be array");
+	}
+	SEPARATE_ZVAL_IF_NOT_REF(data);
+	ht_data = Z_ARRVAL_PP(data);
+
+	if ((key == NULL) && (zend_hash_num_elements(ht_data))) {
+		oldFieldsMap = zend_read_property(obj_ce, obj_zval, "_oldFieldsMap", sizeof("_oldFieldsMap") - 1, FALSE TSRMLS_CC);
+		if (Z_TYPE_P(oldFieldsMap) != IS_ARRAY) {
+			php_error_docref(NULL TSRMLS_CC, E_ERROR, "_oldFieldsMap property must be array");
+		}
+		ht_oldFieldsMap = Z_ARRVAL_P(oldFieldsMap);
+
+		if (zend_hash_num_elements(ht_oldFieldsMap)) {
+			for (zend_hash_internal_pointer_reset(ht_oldFieldsMap); zend_hash_has_more_elements(ht_oldFieldsMap) == SUCCESS; zend_hash_move_forward(ht_oldFieldsMap)) {
+				current_key_type = zend_hash_get_current_key_ex(ht_oldFieldsMap, &current_key, &current_key_len, &current_index, FALSE, NULL);
+
+				if (current_key_type == HASH_KEY_IS_LONG) {
+					zend_hash_index_del(ht_data, current_index);
+				} else {
+					zend_symtable_del(ht_data, current_key, current_key_len);
+				}
+			}
+		}
+	} else {
+		expand_to_long_or_string(key, &key_long, &key_str, &key_str_len, &is_dispose_key_str TSRMLS_CC);
+
+		if (key_str) {
+			zend_symtable_del(ht_data, key_str, key_str_len);
+		} else {
+			zend_hash_index_del(ht_data, key_long);
+		}
+
 		if (is_dispose_key_str) {
 			efree(key_str);
 		}
