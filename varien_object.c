@@ -503,8 +503,9 @@ PHP_METHOD(Varien_Object, _addFullNames)
 	}
 
 	/* Iterate over syncFieldsMap and find the keys, to which we will sync values from _data. */
-	ht_syncFieldsMap = Z_ARRVAL_P(syncFieldsMap);
+	SEPARATE_ZVAL_IF_NOT_REF(data);
 	ht_data = Z_ARRVAL_PP(data);
+	ht_syncFieldsMap = Z_ARRVAL_P(syncFieldsMap);
 	copy_to_keys = emalloc(num_sync_elements * sizeof(key_info_t)); /* Allocate maximal possible array to hold things we will sync */
 	total_to_sync = 0;
 	for (zend_hash_internal_pointer_reset(ht_syncFieldsMap); zend_hash_has_more_elements(ht_syncFieldsMap) == SUCCESS; zend_hash_move_forward(ht_syncFieldsMap)) {
@@ -918,6 +919,7 @@ PHP_METHOD(Varien_Object, setData)
 		if (Z_TYPE_PP(data) != IS_ARRAY) {
 			php_error_docref(NULL TSRMLS_CC, E_ERROR, "_data property must be array");
 		}
+		SEPARATE_ZVAL_IF_NOT_REF(data);
 		ht_data = Z_ARRVAL_PP(data);
 
 		if (!value_zval) {
@@ -926,7 +928,6 @@ PHP_METHOD(Varien_Object, setData)
 		} else {
 			Z_ADDREF_P(value_zval);
 		}
-
 
 		expand_to_long_or_string(key_zval, &key_long, &key_str, &key_str_len, &is_dispose_key_str TSRMLS_CC);
 		if (key_str) {

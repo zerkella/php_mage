@@ -103,4 +103,11 @@ class Varien_Object_methods__addFullNamesTest extends PHPUnit_Framework_TestCase
         );
         $this->assertEquals($expected, $actual);
     }
+
+    public function testAddFullNamesNotLinkedToInitialData()
+    {
+        $data = array('old_property1' => 'old_property1_value', 111 => '111_value');
+        new Zerkella_PhpMage_Varien_Object_Descendant_AddFullNames($data);
+        $this->assertEquals(array('old_property1' => 'old_property1_value', 111 => '111_value'), $data);
+    }
 }

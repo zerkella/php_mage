@@ -178,4 +178,20 @@ class Varien_Object_methods_setDataTest extends PHPUnit_Framework_TestCase
         $object->setData('key', $value);
         $this->assertSame($value, $object->getData('key'));
     }
+
+    public function testSetDataOriginalDataMustBeIntactWhenKeyPassed()
+    {
+        $data = array('a' => 'b');
+        $object = new Varien_Object($data);
+        $object->setData(1, 2);
+        $this->assertSame(array('a' => 'b'), $data);
+    }
+
+    public function testSetDataOriginalDataMustBeIntactWhenArrayPassed()
+    {
+        $data = array('a' => 'b');
+        $object = new Varien_Object($data);
+        $object->setData(array(2));
+        $this->assertSame(array('a' => 'b'), $data);
+    }
 }
