@@ -60,6 +60,7 @@ PHP_METHOD(Varien_Object, unsetData);
 PHP_METHOD(Varien_Object, unsetOldData);
 PHP_METHOD(Varien_Object, _getData);
 PHP_METHOD(Varien_Object, setDataUsingMethod);
+PHP_METHOD(Varien_Object, getDataUsingMethod);
 
 ZEND_BEGIN_ARG_INFO_EX(vo_getData_arg_info, 0, 0, 0)
 	ZEND_ARG_INFO(0, key)
@@ -104,6 +105,11 @@ ZEND_BEGIN_ARG_INFO_EX(vo_setDataUsingMethod_arg_info, 0, 0, 1)
 	ZEND_ARG_INFO(0, args)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(vo_getDataUsingMethod_arg_info, 0, 0, 1)
+	ZEND_ARG_INFO(0, key)
+	ZEND_ARG_INFO(0, args)
+ZEND_END_ARG_INFO()
+
 static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, __construct, NULL, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
 	PHP_ME(Varien_Object, _initOldFieldsMap, NULL, ZEND_ACC_PROTECTED)
@@ -123,6 +129,7 @@ static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, unsetOldData, vo_unsetOldData_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, _getData, NULL, ZEND_ACC_PROTECTED)
 	PHP_ME(Varien_Object, setDataUsingMethod, vo_setDataUsingMethod_arg_info, ZEND_ACC_PUBLIC)
+	PHP_ME(Varien_Object, getDataUsingMethod, vo_getDataUsingMethod_arg_info, ZEND_ACC_PUBLIC)
 	PHP_FE_END
 };
 
@@ -1565,5 +1572,72 @@ PHP_METHOD(Varien_Object, setDataUsingMethod)
 	/* Return $this */
 	if (return_value_used) {
 		MAKE_COPY_ZVAL(&obj_zval, return_value);
+	}
+}
+
+/* public function getDataUsingMethod($key, $args=array()) */
+PHP_METHOD(Varien_Object, getDataUsingMethod)
+{
+	/* ---PHP---
+	$method = 'get'.$this->_camelize($key);
+	return $this->$method($args);
+	*/
+
+	zval *obj_zval = getThis();
+	int num_args = ZEND_NUM_ARGS();
+	int parse_result;
+	char *key;
+	uint key_len;
+	zval *args;
+	HashTable *ht_args;
+	zend_bool is_free_args;
+	char *method;
+	uint method_len;
+	zval **retval_ptr_ptr;
+
+	if (!num_args) {
+		php_error_docref(NULL TSRMLS_CC, E_ERROR, "$key parameter is required");
+	}
+
+	/* Extract parameters */
+	args = NULL;
+	parse_result = zend_parse_parameters(num_args TSRMLS_CC, "s|z", &key, &key_len, &args);
+	if (parse_result == FAILURE) {
+		php_error_docref(NULL TSRMLS_CC, E_ERROR, "Couldn't parse parameters of getDataUsingMethod() call");
+	}
+
+	is_free_args = 0;
+	if (args == NULL) {
+		is_free_args = 1;
+
+		ALLOC_HASHTABLE(ht_args);
+		if (zend_hash_init(ht_args, 0, NULL, ZVAL_PTR_DTOR, TRUE) == FAILURE) {
+			FREE_HASHTABLE(ht_args);
+			php_error_docref(NULL TSRMLS_CC, E_ERROR, "Unable to init HashTable for $args variable");
+		}
+
+		MAKE_STD_ZVAL(args);
+		Z_TYPE_P(args) = IS_ARRAY;
+		Z_ARRVAL_P(args) = ht_args;
+	}
+
+	/* Compose name of the method to be used */
+	vo_camelize_without_caps(key, key_len, "get", sizeof("get") - 1, &method, &method_len TSRMLS_CC);
+
+	/* Call the method */
+	retval_ptr_ptr = return_value_used ? emalloc(sizeof(zval *)) : NULL;
+	zend_call_method(&obj_zval, Z_OBJCE_P(obj_zval), NULL, method, method_len - 1, retval_ptr_ptr, 1, args, NULL TSRMLS_CC);
+
+	/* Free memory */
+	efree(method);
+	if (is_free_args) {
+		zval_ptr_dtor(&args);
+	}
+	
+	/* Return data */
+	if (return_value_used) {
+		MAKE_COPY_ZVAL(retval_ptr_ptr, return_value);
+		zval_ptr_dtor(retval_ptr_ptr);
+		efree(retval_ptr_ptr);
 	}
 }
