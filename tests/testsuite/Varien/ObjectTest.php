@@ -43,6 +43,7 @@ class Varien_ObjectTest extends PHPUnit_Framework_TestCase
             array('_getData', array('protected')),
             array('setDataUsingMethod', array('public')),
             array('getDataUsingMethod', array('public')),
+            array('getDataSetDefault', array('public')),
         );
     }
 

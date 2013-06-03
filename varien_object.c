@@ -61,6 +61,7 @@ PHP_METHOD(Varien_Object, unsetOldData);
 PHP_METHOD(Varien_Object, _getData);
 PHP_METHOD(Varien_Object, setDataUsingMethod);
 PHP_METHOD(Varien_Object, getDataUsingMethod);
+PHP_METHOD(Varien_Object, getDataSetDefault);
 
 ZEND_BEGIN_ARG_INFO_EX(vo_getData_arg_info, 0, 0, 0)
 	ZEND_ARG_INFO(0, key)
@@ -110,6 +111,11 @@ ZEND_BEGIN_ARG_INFO_EX(vo_getDataUsingMethod_arg_info, 0, 0, 1)
 	ZEND_ARG_INFO(0, args)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(vo_getDataSetDefault_arg_info, 0, 0, 2)
+	ZEND_ARG_INFO(0, key)
+	ZEND_ARG_INFO(0, default)
+ZEND_END_ARG_INFO()
+
 static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, __construct, NULL, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
 	PHP_ME(Varien_Object, _initOldFieldsMap, NULL, ZEND_ACC_PROTECTED)
@@ -130,6 +136,7 @@ static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, _getData, NULL, ZEND_ACC_PROTECTED)
 	PHP_ME(Varien_Object, setDataUsingMethod, vo_setDataUsingMethod_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, getDataUsingMethod, vo_getDataUsingMethod_arg_info, ZEND_ACC_PUBLIC)
+	PHP_ME(Varien_Object, getDataSetDefault, vo_getDataSetDefault_arg_info, ZEND_ACC_PUBLIC)
 	PHP_FE_END
 };
 
@@ -1641,3 +1648,61 @@ PHP_METHOD(Varien_Object, getDataUsingMethod)
 		efree(retval_ptr_ptr);
 	}
 }
+
+/* public function getDataSetDefault($key, $default) */
+PHP_METHOD(Varien_Object, getDataSetDefault)
+{
+	/* ---PHP---
+	if (!isset($this->_data[$key])) {
+		$this->_data[$key] = $default;
+	}
+	return $this->_data[$key];
+	*/
+
+	zval *obj_zval = getThis();
+	int num_args = ZEND_NUM_ARGS();
+	int parse_result;
+	char *key;
+	uint key_len;
+	zval **data;
+	HashTable *ht_data;
+	zval **value;
+	zval *default_param;
+	zend_bool is_set_default;
+
+	if (num_args >= 2) {
+		parse_result = zend_parse_parameters(num_args TSRMLS_CC, "sz", &key, &key_len, &default_param);
+		if (parse_result == FAILURE) {
+			php_error_docref(NULL TSRMLS_CC, E_ERROR, "Couldn't parse parameters of getDataSetDefault() call");
+		}
+	} else {
+		php_error_docref(NULL TSRMLS_CC, E_ERROR, "$key and $default parameters are required");
+	}
+
+	/* Extract and check _data property */
+	vo_extract_data_property(obj_zval, &data);
+	if (Z_TYPE_PP(data) != IS_ARRAY) {
+		php_error_docref(NULL TSRMLS_CC, E_ERROR, "_data property must be array");
+	}
+	ht_data = Z_ARRVAL_PP(data);
+		
+	is_set_default = TRUE;
+	if (zend_symtable_find(ht_data, key, key_len + 1, (void **) &value) != FAILURE) {
+		if (Z_TYPE_PP(value) != IS_NULL) {
+			is_set_default = FALSE;
+		}
+	}
+
+	if (is_set_default) {
+		SEPARATE_ZVAL_IF_NOT_REF(data);
+		ht_data = Z_ARRVAL_PP(data);
+		SEPARATE_ARG_IF_REF(default_param);
+		zend_symtable_update(ht_data, key, key_len + 1, &default_param, sizeof(zval *), NULL);
+		if (return_value_used) {
+			MAKE_COPY_ZVAL(&default_param, return_value);
+		}
+	} else if (return_value_used) {
+		MAKE_COPY_ZVAL(value, return_value);
+	}
+}
+
