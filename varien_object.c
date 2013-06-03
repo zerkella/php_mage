@@ -62,6 +62,7 @@ PHP_METHOD(Varien_Object, _getData);
 PHP_METHOD(Varien_Object, setDataUsingMethod);
 PHP_METHOD(Varien_Object, getDataUsingMethod);
 PHP_METHOD(Varien_Object, getDataSetDefault);
+PHP_METHOD(Varien_Object, hasData);
 
 ZEND_BEGIN_ARG_INFO_EX(vo_getData_arg_info, 0, 0, 0)
 	ZEND_ARG_INFO(0, key)
@@ -116,6 +117,10 @@ ZEND_BEGIN_ARG_INFO_EX(vo_getDataSetDefault_arg_info, 0, 0, 2)
 	ZEND_ARG_INFO(0, default)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(vo_hasData_arg_info, 0, 0, 0)
+	ZEND_ARG_INFO(0, key)
+ZEND_END_ARG_INFO()
+
 static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, __construct, NULL, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
 	PHP_ME(Varien_Object, _initOldFieldsMap, NULL, ZEND_ACC_PROTECTED)
@@ -137,6 +142,7 @@ static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, setDataUsingMethod, vo_setDataUsingMethod_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, getDataUsingMethod, vo_getDataUsingMethod_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, getDataSetDefault, vo_getDataSetDefault_arg_info, ZEND_ACC_PUBLIC)
+	PHP_ME(Varien_Object, hasData, vo_hasData_arg_info, ZEND_ACC_PUBLIC)
 	PHP_FE_END
 };
 
@@ -1704,5 +1710,49 @@ PHP_METHOD(Varien_Object, getDataSetDefault)
 	} else if (return_value_used) {
 		MAKE_COPY_ZVAL(value, return_value);
 	}
+}
+
+/* public function hasData($key='') */
+PHP_METHOD(Varien_Object, hasData)
+{
+	/* ---PHP---
+	if (empty($key) || !is_string($key)) {
+		return !empty($this->_data);
+	}
+	return array_key_exists($key, $this->_data);
+	*/
+
+	zval *obj_zval = getThis();
+	int num_args = ZEND_NUM_ARGS();
+	int parse_result;
+	zval **data;
+	HashTable *ht_data;
+	zval *key;
+	zend_bool is_return_data;
+
+	if (!return_value_used) {
+		return;
+	}
+
+	/* Extract and check _data property */
+	vo_extract_data_property(obj_zval, &data);
+	if (Z_TYPE_PP(data) != IS_ARRAY) {
+		php_error_docref(NULL TSRMLS_CC, E_ERROR, "_data property must be array");
+	}
+	ht_data = Z_ARRVAL_PP(data);
+
+	/* Parse parameter and decide, whether we should just return _data */
+	is_return_data = TRUE;
+	if (num_args) {
+		parse_result = zend_parse_parameters(num_args TSRMLS_CC, "z!", &key);
+		if (parse_result == FAILURE) {
+			php_error_docref(NULL TSRMLS_CC, E_ERROR, "Couldn't parse parameters of hasData() call");
+		}
+		if (key && (Z_TYPE_P(key) == IS_STRING) && Z_STRLEN_P(key)) {
+			is_return_data = FALSE;
+		}
+	}
+
+	RETURN_BOOL(is_return_data ? zend_hash_num_elements(ht_data) : zend_symtable_exists(ht_data, Z_STRVAL_P(key), Z_STRLEN_P(key) + 1));
 }
 
