@@ -63,6 +63,7 @@ PHP_METHOD(Varien_Object, setDataUsingMethod);
 PHP_METHOD(Varien_Object, getDataUsingMethod);
 PHP_METHOD(Varien_Object, getDataSetDefault);
 PHP_METHOD(Varien_Object, hasData);
+PHP_METHOD(Varien_Object, __toArray);
 
 ZEND_BEGIN_ARG_INFO_EX(vo_getData_arg_info, 0, 0, 0)
 	ZEND_ARG_INFO(0, key)
@@ -121,6 +122,10 @@ ZEND_BEGIN_ARG_INFO_EX(vo_hasData_arg_info, 0, 0, 0)
 	ZEND_ARG_INFO(0, key)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(vo___toArray_arg_info, 0, 0, 0)
+	ZEND_ARG_ARRAY_INFO(0, arrAttributes, 0)
+ZEND_END_ARG_INFO()
+
 static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, __construct, NULL, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
 	PHP_ME(Varien_Object, _initOldFieldsMap, NULL, ZEND_ACC_PROTECTED)
@@ -143,6 +148,7 @@ static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, getDataUsingMethod, vo_getDataUsingMethod_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, getDataSetDefault, vo_getDataSetDefault_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, hasData, vo_hasData_arg_info, ZEND_ACC_PUBLIC)
+	PHP_ME(Varien_Object, __toArray, vo___toArray_arg_info, ZEND_ACC_PUBLIC)
 	PHP_FE_END
 };
 
@@ -1756,3 +1762,109 @@ PHP_METHOD(Varien_Object, hasData)
 	RETURN_BOOL(is_return_data ? zend_hash_num_elements(ht_data) : zend_symtable_exists(ht_data, Z_STRVAL_P(key), Z_STRLEN_P(key) + 1));
 }
 
+/* public function __toArray(array $arrAttributes = array()) */
+PHP_METHOD(Varien_Object, __toArray)
+{
+	/* ---PHP---
+	if (empty($arrAttributes)) {
+		return $this->_data;
+	}
+
+	$arrRes = array();
+	foreach ($arrAttributes as $attribute) {
+		if (isset($this->_data[$attribute])) {
+			$arrRes[$attribute] = $this->_data[$attribute];
+		}
+		else {
+			$arrRes[$attribute] = null;
+		}
+	}
+	return $arrRes;	
+	*/
+
+	zval *obj_zval = getThis();
+	int num_args = ZEND_NUM_ARGS();
+	int parse_result;
+	zval **data;
+	HashTable *ht_data;
+	zval *arrAttributes;
+	HashTable *ht_arrAttributes;
+	int num_attributes;
+	HashTable *ht_arrRes;
+	zval *null_zval;
+	zval **found_zval, **attr_name;
+	zval *copied_zval;
+	int found_result;
+	long attr_long;
+	char *attr_str;
+	uint attr_str_len;
+	zend_bool is_dispose_attr_str;
+
+	if (!return_value_used) {
+		return;
+	}
+
+	/* Extract and check _data property */
+	vo_extract_data_property(obj_zval, &data);
+	if (Z_TYPE_PP(data) != IS_ARRAY) {
+		php_error_docref(NULL TSRMLS_CC, E_ERROR, "_data property must be array");
+	}
+
+	/* Parse parameter and decide, whether we should just return _data */
+	num_attributes = 0;
+	if (num_args) {
+		parse_result = zend_parse_parameters(num_args TSRMLS_CC, "z", &arrAttributes);
+		if (parse_result == FAILURE) {
+			php_error_docref(NULL TSRMLS_CC, E_ERROR, "Couldn't parse parameters of __toArray() call");
+		}
+		num_attributes = zend_hash_num_elements(Z_ARRVAL_P(arrAttributes)); /* Array type is forced by argument declaration */
+	}
+
+	/* Return just _data */
+	if (!num_attributes) {
+		MAKE_COPY_ZVAL(data, return_value);
+		return;
+	}
+
+	/* Go through $arrAttributes and compose resulting array */
+	array_init(return_value);
+	ht_arrRes = Z_ARRVAL_P(return_value);
+	ht_arrAttributes = Z_ARRVAL_P(arrAttributes);
+	ht_data = Z_ARRVAL_PP(data);
+	null_zval = NULL;
+	for (zend_hash_internal_pointer_reset(ht_arrAttributes); zend_hash_has_more_elements(ht_arrAttributes) == SUCCESS; zend_hash_move_forward(ht_arrAttributes)) {
+		/* Extract current value, i.e. name of the attribute to copy from */
+		zend_hash_get_current_data(ht_arrAttributes, (void **) &attr_name);
+		expand_to_long_or_string(*attr_name, &attr_long, &attr_str, &attr_str_len, &is_dispose_attr_str TSRMLS_CC);
+
+		if (attr_str) {
+			found_result = zend_symtable_find(ht_data, attr_str, attr_str_len, (void **) &found_zval);
+		} else {
+			found_result = zend_hash_index_find(ht_data, attr_long, (void **) &found_zval);
+		}
+
+		if (found_result == SUCCESS) {
+			copied_zval = *found_zval;
+			SEPARATE_ARG_IF_REF(copied_zval);
+		} else {
+			if (null_zval) {
+				Z_ADDREF_P(null_zval);
+			} else {
+				MAKE_STD_ZVAL(null_zval);
+				ZVAL_NULL(null_zval);
+			}
+			copied_zval = null_zval;
+		}
+
+		/* Copy attribute to resulting array */
+		if (attr_str) {
+			zend_symtable_update(ht_arrRes, attr_str, attr_str_len, &copied_zval, sizeof(zval *), NULL);
+		} else {
+			zend_hash_index_update(ht_arrRes, attr_long, &copied_zval, sizeof(zval *), NULL);
+		}
+
+		if (is_dispose_attr_str) {
+			efree(attr_str);
+		}
+	}
+}
