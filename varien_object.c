@@ -64,6 +64,7 @@ PHP_METHOD(Varien_Object, getDataUsingMethod);
 PHP_METHOD(Varien_Object, getDataSetDefault);
 PHP_METHOD(Varien_Object, hasData);
 PHP_METHOD(Varien_Object, __toArray);
+PHP_METHOD(Varien_Object, toArray);
 
 ZEND_BEGIN_ARG_INFO_EX(vo_getData_arg_info, 0, 0, 0)
 	ZEND_ARG_INFO(0, key)
@@ -126,6 +127,10 @@ ZEND_BEGIN_ARG_INFO_EX(vo___toArray_arg_info, 0, 0, 0)
 	ZEND_ARG_ARRAY_INFO(0, arrAttributes, 0)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(vo_toArray_arg_info, 0, 0, 0)
+	ZEND_ARG_ARRAY_INFO(0, arrAttributes, 0)
+ZEND_END_ARG_INFO()
+
 static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, __construct, NULL, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
 	PHP_ME(Varien_Object, _initOldFieldsMap, NULL, ZEND_ACC_PROTECTED)
@@ -149,6 +154,7 @@ static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, getDataSetDefault, vo_getDataSetDefault_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, hasData, vo_hasData_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, __toArray, vo___toArray_arg_info, ZEND_ACC_PUBLIC)
+	PHP_ME(Varien_Object, toArray, vo_toArray_arg_info, ZEND_ACC_PUBLIC)
 	PHP_FE_END
 };
 
@@ -1867,4 +1873,39 @@ PHP_METHOD(Varien_Object, __toArray)
 			efree(attr_str);
 		}
 	}
+}
+
+/* public function toArray(array $arrAttributes = array()) */
+PHP_METHOD(Varien_Object, toArray)
+{
+	/* ---PHP---
+	return $this->__toArray($arrAttributes);
+	*/
+
+	zval *obj_zval = getThis();
+	zend_class_entry *obj_ce = Z_OBJCE_P(obj_zval);
+	int num_args = ZEND_NUM_ARGS();
+	zval *arrAttributes;
+	int parse_result;
+	zval *result;
+
+	if (!return_value_used) {
+		return;
+	}
+
+	/* Parse parameter and decide, whether we should just return _data */
+	if (num_args) {
+		parse_result = zend_parse_parameters(num_args TSRMLS_CC, "z", &arrAttributes);
+		if (parse_result == FAILURE) {
+			php_error_docref(NULL TSRMLS_CC, E_ERROR, "Couldn't parse parameters of toArray() call");
+		}
+	} else {
+		MAKE_STD_ZVAL(arrAttributes);
+		array_init(arrAttributes);
+	}
+
+	zend_call_method_with_1_params(&obj_zval, obj_ce, NULL, "__toarray", &result, arrAttributes);
+	MAKE_COPY_ZVAL(&result, return_value);
+
+	zval_ptr_dtor(&result);
 }
