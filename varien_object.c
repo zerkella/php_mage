@@ -65,6 +65,7 @@ PHP_METHOD(Varien_Object, getDataSetDefault);
 PHP_METHOD(Varien_Object, hasData);
 PHP_METHOD(Varien_Object, __toArray);
 PHP_METHOD(Varien_Object, toArray);
+PHP_METHOD(Varien_Object, _prepareArray);
 
 ZEND_BEGIN_ARG_INFO_EX(vo_getData_arg_info, 0, 0, 0)
 	ZEND_ARG_INFO(0, key)
@@ -131,6 +132,11 @@ ZEND_BEGIN_ARG_INFO_EX(vo_toArray_arg_info, 0, 0, 0)
 	ZEND_ARG_ARRAY_INFO(0, arrAttributes, 0)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(vo__prepareArray_arg_info, 0, 0, 1)
+	ZEND_ARG_INFO(1, arr)
+	ZEND_ARG_ARRAY_INFO(0, elements, 0)
+ZEND_END_ARG_INFO()
+
 static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, __construct, NULL, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
 	PHP_ME(Varien_Object, _initOldFieldsMap, NULL, ZEND_ACC_PROTECTED)
@@ -155,6 +161,7 @@ static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, hasData, vo_hasData_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, __toArray, vo___toArray_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, toArray, vo_toArray_arg_info, ZEND_ACC_PUBLIC)
+	PHP_ME(Varien_Object, _prepareArray, vo__prepareArray_arg_info, ZEND_ACC_PROTECTED)
 	PHP_FE_END
 };
 
@@ -1908,4 +1915,87 @@ PHP_METHOD(Varien_Object, toArray)
 	MAKE_COPY_ZVAL(&result, return_value);
 
 	zval_ptr_dtor(&result);
+}
+
+/* protected function _prepareArray(&$arr, array $elements=array()) */
+PHP_METHOD(Varien_Object, _prepareArray)
+{
+	/* ---PHP---
+	foreach ($elements as $element) {
+		if (!isset($arr[$element])) {
+			$arr[$element] = null;
+		}
+	}
+	return $arr;
+	*/
+
+	int num_args = ZEND_NUM_ARGS();
+	zval *arr;
+	zval **element;
+	HashTable *ht_elements, *ht_arr;
+	zval *null_zval;
+	int element_exists;
+	long element_long;
+	char *element_str;
+	uint element_str_len;
+	zend_bool is_dispose_element_str;
+
+	if (zend_parse_parameters(num_args TSRMLS_CC, "z|h", &arr, &ht_elements) == FAILURE) {
+		RETURN_FALSE;
+	}
+
+	/* Process $elements */
+	if ((num_args < 2) || !zend_hash_num_elements(ht_elements)) {
+		if (return_value_used) {
+			MAKE_COPY_ZVAL(&arr, return_value);
+			return;
+		}
+	}
+
+	/* Process $arr */
+	if (Z_TYPE_P(arr) != IS_ARRAY) {
+		if (Z_TYPE_P(arr) == IS_NULL) {
+			array_init(arr);
+		} else {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "$arr must be passed as array or null");
+			RETURN_FALSE;
+		}
+	}
+	ht_arr = Z_ARRVAL_P(arr);
+
+	/* Fill $arr with nulls according to $elements */
+	null_zval = NULL;
+	for (zend_hash_internal_pointer_reset(ht_elements); zend_hash_has_more_elements(ht_elements) == SUCCESS; zend_hash_move_forward(ht_elements)) {
+		/* Extract current value, i.e. element of $arr to fill in */
+		zend_hash_get_current_data(ht_elements, (void **) &element);
+		expand_to_long_or_string(*element, &element_long, &element_str, &element_str_len, &is_dispose_element_str TSRMLS_CC);
+
+		if (element_str) {
+			element_exists = zend_symtable_exists(ht_arr, element_str, element_str_len);
+		} else {
+			element_exists = zend_hash_index_exists(ht_arr, element_long);
+		}
+
+		if (!element_exists) {
+			if (null_zval) {
+				Z_ADDREF_P(null_zval);
+			} else {
+				MAKE_STD_ZVAL(null_zval);
+				ZVAL_NULL(null_zval);
+			}
+			if (element_str) {
+				zend_symtable_update(ht_arr, element_str, element_str_len, &null_zval, sizeof(zval *), NULL);
+			} else {
+				zend_hash_index_update(ht_arr, element_long, &null_zval, sizeof(zval *), NULL);
+			}
+		}
+
+		if (is_dispose_element_str) {
+			efree(element_str);
+		}
+	}
+
+	if (return_value_used) {
+		MAKE_COPY_ZVAL(&arr, return_value);
+	}
 }
