@@ -1,7 +1,10 @@
 #include "php.h"
 #include "zend_interfaces.h"
+#include "ext/standard/php_smart_str.h"
+#include "ext/standard/php_string.h"
 #include "varien_object.h"
 #include "temp.h"
+#include <stdio.h>
 
 #define INTERNAL_ARR_DEF -97623086 /* Default value for array properties, so we know when it was redeclared in subclass */
 
@@ -66,6 +69,7 @@ PHP_METHOD(Varien_Object, hasData);
 PHP_METHOD(Varien_Object, __toArray);
 PHP_METHOD(Varien_Object, toArray);
 PHP_METHOD(Varien_Object, _prepareArray);
+PHP_METHOD(Varien_Object, __toXml);
 
 ZEND_BEGIN_ARG_INFO_EX(vo_getData_arg_info, 0, 0, 0)
 	ZEND_ARG_INFO(0, key)
@@ -137,6 +141,13 @@ ZEND_BEGIN_ARG_INFO_EX(vo__prepareArray_arg_info, 0, 0, 1)
 	ZEND_ARG_ARRAY_INFO(0, elements, 0)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(vo___toXml_arg_info, 0, 0, 0)
+	ZEND_ARG_ARRAY_INFO(0, arrAttributes, 0)
+	ZEND_ARG_INFO(0, rootName)
+	ZEND_ARG_INFO(0, addOpenTag)
+	ZEND_ARG_INFO(0, addCdata)
+ZEND_END_ARG_INFO()
+
 static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, __construct, NULL, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
 	PHP_ME(Varien_Object, _initOldFieldsMap, NULL, ZEND_ACC_PROTECTED)
@@ -162,6 +173,7 @@ static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, __toArray, vo___toArray_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, toArray, vo_toArray_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, _prepareArray, vo__prepareArray_arg_info, ZEND_ACC_PROTECTED)
+	PHP_ME(Varien_Object, __toXml, vo___toXml_arg_info, ZEND_ACC_PROTECTED)
 	PHP_FE_END
 };
 
@@ -176,6 +188,7 @@ static void vo_create_default_array_properties(zend_object_value *obj_value TSRM
 static vo_property_info_t *get_protected_property_info(const char *name, int name_len, int persistent);
 static zend_bool def_property_redeclared(const zval *obj_zval, const zend_class_entry *class_type, const vo_property_declaration_entry_t *property_declaration);
 static int vo_callback_make_syncFieldsMap(zval **zv TSRMLS_DC, int num_args, va_list args, zend_hash_key *hash_key);
+static void vo_convert_htmlentities(zval * value, char **result_str, uint *result_len);
 
 /* Pseudo functions */
 #define vo_extract_data_property(obj_zval_p, data_zval_ppp) \
@@ -1999,3 +2012,204 @@ PHP_METHOD(Varien_Object, _prepareArray)
 		MAKE_COPY_ZVAL(&arr, return_value);
 	}
 }
+
+/* protected function __toXml(array $arrAttributes = array(), $rootName = 'item', $addOpenTag=false, $addCdata=true) */
+PHP_METHOD(Varien_Object, __toXml)
+{
+	/* ---PHP---
+	$xml = '';
+	if ($addOpenTag) {
+		$xml.= '<?xml version="1.0" encoding="UTF-8"?>'."\n";
+	}
+	if (!empty($rootName)) {
+		$xml.= '<'.$rootName.'>'."\n";
+	}
+	$xmlModel = new Varien_Simplexml_Element('<node></node>');
+	$arrData = $this->toArray($arrAttributes);
+	foreach ($arrData as $fieldName => $fieldValue) {
+		if ($addCdata === true) {
+			$fieldValue = "<![CDATA[$fieldValue]]>";
+		} else {
+			$fieldValue = $xmlModel->xmlentities($fieldValue);
+		}
+		$xml.= "<$fieldName>$fieldValue</$fieldName>"."\n";
+	}
+	if (!empty($rootName)) {
+		$xml.= '</'.$rootName.'>'."\n";
+	}
+	return $xml;
+	*/
+
+	#define XML_START "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+	#define CDATA_START "<![CDATA["
+	#define CDATA_END "]]>"
+	#define EXPECTED_FIELD_NAME_LEN 15
+	#define EXPECTED_FIELD_VAL_LEN 20
+	#define LONG_BUFFER_SIZE 40 /* Just any number of chars to hold long value */
+
+	zval *obj_zval = getThis();
+	zend_class_entry *obj_ce = Z_OBJCE_P(obj_zval);
+	int num_args = ZEND_NUM_ARGS();
+	zval *arrAttributes = NULL, *addCdata = NULL;
+	char *rootName = NULL;
+	uint rootName_len;
+	zend_bool addOpenTag = FALSE;
+	smart_str result = {0};
+	size_t expected_len;
+	size_t newlen; /* For smart_str_alloc() */
+	zval *arrData;
+	HashTable *ht_arrData;
+	zend_bool is_add_cdata, is_dispose_arrAtrributes;
+	zval **fieldValue;
+	int fieldName_key_type;
+	ulong fieldName_long;
+	char *fieldName_str;
+	uint fieldName_str_len;
+	char *str_temp;
+	char *fieldValue_cleaned_str;
+	uint fieldValue_cleaned_len;
+	zval *fieldValue_converted;
+
+	if (!return_value_used) {
+		return;
+	}
+
+	if (zend_parse_parameters(num_args TSRMLS_CC, "|as!bz!", &arrAttributes, &rootName, &rootName_len, &addOpenTag, &addCdata) == FAILURE) {
+		RETURN_FALSE;
+	}
+
+	/* Defaults */
+	if (!rootName && (num_args < 2)) {
+		rootName = "item";
+		rootName_len = 4;
+	}
+	is_add_cdata = addCdata && (Z_TYPE_P(addCdata) == IS_BOOL) && Z_BVAL_P(addCdata);
+
+	/* Fetch arrData */
+	is_dispose_arrAtrributes = FALSE;
+	if (!arrAttributes) {
+		MAKE_STD_ZVAL(arrAttributes);
+		array_init(arrAttributes);
+		is_dispose_arrAtrributes = TRUE;
+	}
+	zend_call_method_with_1_params(&obj_zval, obj_ce, NULL, "toarray", &arrData, arrAttributes);
+	if (is_dispose_arrAtrributes) {
+		zval_ptr_dtor(&arrAttributes);
+	}
+	if (!arrData || (Z_TYPE_P(arrData) != IS_ARRAY)) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "__toXml() expects toArray() to return array");
+		RETURN_FALSE;
+	}
+	ht_arrData = Z_ARRVAL_P(arrData);
+
+	/* Calculate expected length and pre-allocate buffer */
+	expected_len = addOpenTag ? sizeof(XML_START) - 1 : 0;
+	expected_len += rootName ? 3 + 4 + 2 * rootName_len : 0;
+	expected_len += zend_hash_num_elements(ht_arrData) 
+		* ((is_add_cdata ? sizeof(CDATA_START) - 1 + sizeof(CDATA_END) - 1 : 0) + EXPECTED_FIELD_NAME_LEN + EXPECTED_FIELD_VAL_LEN + 6); 
+	smart_str_alloc(&result, expected_len, 0);
+
+	/* Open tag */
+	if (addOpenTag) {
+		smart_str_appendl(&result, XML_START, sizeof(XML_START) - 1);
+	}
+	
+	/* Root name */
+	if (rootName && rootName_len) {
+		smart_str_appendl(&result, "<", 1);
+		smart_str_appendl(&result, rootName, rootName_len);
+		smart_str_appendl(&result, ">\n", 2);
+	}
+
+	/* Compose body of XML */
+	ALLOC_INIT_ZVAL(fieldValue_converted);
+	str_temp = emalloc(LONG_BUFFER_SIZE);
+	for (zend_hash_internal_pointer_reset(ht_arrData); zend_hash_has_more_elements(ht_arrData) == SUCCESS; zend_hash_move_forward(ht_arrData)) {
+		zend_hash_get_current_data(ht_arrData, (void **) &fieldValue);
+		fieldName_key_type = zend_hash_get_current_key_ex(ht_arrData, &fieldName_str, &fieldName_str_len, &fieldName_long, FALSE, NULL);
+		
+		if (fieldName_key_type == HASH_KEY_IS_LONG) {
+			fieldName_str_len = snprintf(str_temp, LONG_BUFFER_SIZE, "%ld", fieldName_long);
+			fieldName_str = str_temp;
+		} else {
+			fieldName_str_len--; /* To be properly used at the appending part */
+		}
+
+		/* Add node to resulting XML */
+		smart_str_appendl(&result, "<", 1);
+		smart_str_appendl(&result, fieldName_str, fieldName_str_len);
+		smart_str_appendl(&result, ">", 1);
+
+		if (is_add_cdata) {
+			smart_str_appendl(&result, CDATA_START, sizeof(CDATA_START) - 1);
+		}
+
+		MAKE_COPY_ZVAL(fieldValue, fieldValue_converted);
+		convert_to_string(fieldValue_converted);
+		vo_convert_htmlentities(fieldValue_converted, &fieldValue_cleaned_str, &fieldValue_cleaned_len);
+		smart_str_appendl(&result, fieldValue_cleaned_str, fieldValue_cleaned_len);
+		efree(fieldValue_cleaned_str);
+		zval_dtor(fieldValue_converted);
+
+		if (is_add_cdata) {
+			smart_str_appendl(&result, CDATA_END, sizeof(CDATA_END) - 1);
+		}
+
+		smart_str_appendl(&result, "</", 2);
+		smart_str_appendl(&result, fieldName_str, fieldName_str_len);
+		smart_str_appendl(&result, ">\n", 2);
+	}
+	efree(fieldValue_converted);
+	efree(str_temp);
+
+	/* Ending root name */
+	if (rootName && rootName_len) {
+		smart_str_appendl(&result, "</", 2);
+		smart_str_appendl(&result, rootName, rootName_len);
+		smart_str_appendl(&result, ">\n", 2);
+	}
+
+	/* Result and free resources */
+	RETVAL_STRINGL(result.c, result.len, 0);
+	zval_ptr_dtor(&arrData);
+
+	#undef XML_START
+	#undef CDATA_START
+	#undef CDATA_END
+	#undef EXPECTED_FIELD_NAME_LEN
+	#undef EXPECTED_FIELD_VAL_LEN
+	#undef LONG_BUFFER_SIZE
+}
+
+static void vo_convert_htmlentities(zval * value, char **result_str, uint *result_len)
+{
+	typedef struct {
+		char *from;
+		uint from_len;
+		char *to;
+		uint to_len;
+	} from_to;
+	from_to replacement[5] = {
+		{"&", 1, "&amp;", 5},
+		{"\"", 1, "&quot;", 6},
+		{"'", 1, "&apos;", 6},
+		{"<", 1, "&lt;", 4},
+		{">", 1, "&gt;", 4},
+	};
+	char *haystack;
+	uint haystack_len;
+
+
+	int i;
+	haystack = Z_STRVAL_P(value);
+	haystack_len = Z_STRLEN_P(value);
+	for (i = 0; i < 5; i++) {
+		*result_str = php_str_to_str_ex(haystack, haystack_len, replacement[i].from, replacement[i].from_len, replacement[i].to, replacement[i].to_len, result_len, 0, NULL);
+		if (i) {
+			efree(haystack); /* Was allocated at previous iteration */
+		}
+		haystack = *result_str;
+		haystack_len = *result_len;
+	}
+}
+
