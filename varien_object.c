@@ -70,6 +70,7 @@ PHP_METHOD(Varien_Object, __toArray);
 PHP_METHOD(Varien_Object, toArray);
 PHP_METHOD(Varien_Object, _prepareArray);
 PHP_METHOD(Varien_Object, __toXml);
+PHP_METHOD(Varien_Object, toXml);
 
 ZEND_BEGIN_ARG_INFO_EX(vo_getData_arg_info, 0, 0, 0)
 	ZEND_ARG_INFO(0, key)
@@ -141,7 +142,7 @@ ZEND_BEGIN_ARG_INFO_EX(vo__prepareArray_arg_info, 0, 0, 1)
 	ZEND_ARG_ARRAY_INFO(0, elements, 0)
 ZEND_END_ARG_INFO()
 
-ZEND_BEGIN_ARG_INFO_EX(vo___toXml_arg_info, 0, 0, 0)
+ZEND_BEGIN_ARG_INFO_EX(vo_toXml_arg_info, 0, 0, 0)
 	ZEND_ARG_ARRAY_INFO(0, arrAttributes, 0)
 	ZEND_ARG_INFO(0, rootName)
 	ZEND_ARG_INFO(0, addOpenTag)
@@ -173,7 +174,8 @@ static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, __toArray, vo___toArray_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, toArray, vo_toArray_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, _prepareArray, vo__prepareArray_arg_info, ZEND_ACC_PROTECTED)
-	PHP_ME(Varien_Object, __toXml, vo___toXml_arg_info, ZEND_ACC_PROTECTED)
+	PHP_ME(Varien_Object, __toXml, vo_toXml_arg_info, ZEND_ACC_PROTECTED)
+	PHP_ME(Varien_Object, toXml, vo_toXml_arg_info, ZEND_ACC_PUBLIC)
 	PHP_FE_END
 };
 
@@ -2210,6 +2212,107 @@ static void vo_convert_htmlentities(zval * value, char **result_str, uint *resul
 		}
 		haystack = *result_str;
 		haystack_len = *result_len;
+	}
+}
+
+/* public function toXml(array $arrAttributes = array(), $rootName = 'item', $addOpenTag=false, $addCdata=true) */
+PHP_METHOD(Varien_Object, toXml)
+{
+	/* ---PHP---
+	return $this->__toXml($arrAttributes, $rootName, $addOpenTag, $addCdata);
+	*/
+
+	zval *obj_zval = getThis();
+	zend_class_entry *obj_ce = Z_OBJCE_P(obj_zval);
+	int num_args = ZEND_NUM_ARGS();
+	zval *arrAttributes = NULL, *rootName = NULL, *addOpenTag = NULL, *addCdata = NULL;
+	zend_bool arrAttributes_dispose, rootName_dispose, addOpenTag_dispose, addCdata_dispose;
+	zval *result;
+	zend_fcall_info fci;
+	zend_fcall_info_cache fcc;
+	zval **params[4];
+	int call_result;
+
+	if (!return_value_used) {
+		return;
+	}
+
+	if (zend_parse_parameters(num_args TSRMLS_CC, "|azzz", &arrAttributes, &rootName, &addOpenTag, &addCdata) == FAILURE) {
+		RETURN_FALSE;
+	}
+
+	/* Defaults */
+	if (!arrAttributes) {
+		MAKE_STD_ZVAL(arrAttributes);
+		array_init(arrAttributes);
+		arrAttributes_dispose = TRUE;
+	} else {
+		arrAttributes_dispose = FALSE;
+	}
+
+	if (!rootName) {
+		MAKE_STD_ZVAL(rootName);
+		ZVAL_STRINGL(rootName, "item", 4, 1);
+		rootName_dispose = TRUE;
+	} else {
+		rootName_dispose = FALSE;
+	}
+
+	if (!addOpenTag) {
+		MAKE_STD_ZVAL(addOpenTag);
+		ZVAL_BOOL(addOpenTag, FALSE);
+		addOpenTag_dispose = TRUE;
+	} else {
+		addOpenTag_dispose = FALSE;
+	}
+
+	if (!addCdata) {
+		MAKE_STD_ZVAL(addCdata);
+		ZVAL_BOOL(addCdata, TRUE);
+		addCdata_dispose = TRUE;
+	} else {
+		addCdata_dispose = FALSE;
+	}
+
+	/* Call __toXml() */
+	params[0] = &arrAttributes;
+	params[1] = &rootName;
+	params[2] = &addOpenTag;
+	params[3] = &addCdata;
+
+	fci.size = sizeof(fci);
+	fci.object_ptr = obj_zval;
+	fci.function_name = NULL;
+	fci.retval_ptr_ptr = &result;
+	fci.param_count = 4;
+	fci.params = params;
+	fci.no_separation = 1;
+	fci.symbol_table = NULL;
+
+	fcc.initialized = 1;
+	zend_hash_find(&obj_ce->function_table, "__toxml", sizeof("__toxml"), (void **) &fcc.function_handler);
+	fcc.calling_scope = obj_ce;
+	fcc.called_scope = obj_ce;
+	fcc.object_ptr = obj_zval;
+
+	call_result = zend_call_function(&fci, &fcc TSRMLS_CC);
+	if (call_result == FAILURE) {
+		php_error_docref(NULL TSRMLS_CC, E_ERROR, "Error while calling __toXml() method through toXml()");
+	}
+	COPY_PZVAL_TO_ZVAL(*return_value, result);
+
+	/* Free resources */
+	if (arrAttributes_dispose) {
+		zval_ptr_dtor(&arrAttributes);
+	}
+	if (rootName_dispose) {
+		zval_ptr_dtor(&rootName);
+	}
+	if (addOpenTag_dispose) {
+		zval_ptr_dtor(&addOpenTag);
+	}
+	if (addCdata_dispose) {
+		zval_ptr_dtor(&addCdata);
 	}
 }
 
