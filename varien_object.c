@@ -2361,7 +2361,10 @@ PHP_METHOD(Varien_Object, __toJson)
 	if (arrAttributes_dispose) {
 		zval_ptr_dtor(&arrAttributes);
 	}
-	if (!arrData || (Z_TYPE_P(arrData) != IS_ARRAY)) {
+	if (!arrData) {
+		RETURN_FALSE;
+	}
+	if (Z_TYPE_P(arrData) != IS_ARRAY) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "__toJson() expects toArray() to return array");
 		RETURN_FALSE;
 	}
@@ -2379,7 +2382,7 @@ PHP_METHOD(Varien_Object, __toJson)
 	if (json) {
 		COPY_PZVAL_TO_ZVAL(*return_value, json);
 	} else {
-		RETVAL_NULL();
+		RETURN_FALSE;
 	}
 }
 
@@ -2402,7 +2405,7 @@ PHP_METHOD(Varien_Object, toJson)
 	}
 
 	if (zend_parse_parameters(num_args TSRMLS_CC, "|a", &arrAttributes) == FAILURE) {
-		RETURN_NULL();
+		RETURN_FALSE;
 	}
 
 	/* Fetch arrData */
@@ -2419,6 +2422,6 @@ PHP_METHOD(Varien_Object, toJson)
 	if (arrAttributes) {
 		COPY_PZVAL_TO_ZVAL(*return_value, result);
 	} else {
-		RETVAL_NULL();
+		RETURN_FALSE;
 	}
 }
