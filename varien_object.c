@@ -72,6 +72,7 @@ PHP_METHOD(Varien_Object, _prepareArray);
 PHP_METHOD(Varien_Object, __toXml);
 PHP_METHOD(Varien_Object, toXml);
 PHP_METHOD(Varien_Object, __toJson);
+PHP_METHOD(Varien_Object, toJson);
 
 ZEND_BEGIN_ARG_INFO_EX(vo_getData_arg_info, 0, 0, 0)
 	ZEND_ARG_INFO(0, key)
@@ -182,6 +183,7 @@ static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, __toXml, vo_toXml_arg_info, ZEND_ACC_PROTECTED)
 	PHP_ME(Varien_Object, toXml, vo_toXml_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, __toJson, vo_toJson_arg_info, ZEND_ACC_PROTECTED)
+	PHP_ME(Varien_Object, toJson, vo_toJson_arg_info, ZEND_ACC_PUBLIC)
 	PHP_FE_END
 };
 
@@ -2376,6 +2378,46 @@ PHP_METHOD(Varien_Object, __toJson)
 	/* Result */
 	if (json) {
 		COPY_PZVAL_TO_ZVAL(*return_value, json);
+	} else {
+		RETVAL_NULL();
+	}
+}
+
+/* public function toJson(array $arrAttributes = array()) */
+PHP_METHOD(Varien_Object, toJson)
+{
+	/* ---PHP---
+	return $this->__toJson($arrAttributes);
+	*/
+
+	zval *obj_zval = getThis();
+	zend_class_entry *obj_ce = Z_OBJCE_P(obj_zval);
+	int num_args = ZEND_NUM_ARGS();
+	zval *arrAttributes = NULL;
+	zend_bool arrAttributes_dispose;
+	zval *result;
+
+	if (!return_value_used) {
+		return;
+	}
+
+	if (zend_parse_parameters(num_args TSRMLS_CC, "|a", &arrAttributes) == FAILURE) {
+		RETURN_NULL();
+	}
+
+	/* Fetch arrData */
+	arrAttributes_dispose = FALSE;
+	if (!arrAttributes) {
+		MAKE_STD_ZVAL(arrAttributes);
+		array_init(arrAttributes);
+		arrAttributes_dispose = TRUE;
+	}
+	zend_call_method_with_1_params(&obj_zval, obj_ce, NULL, "__tojson", &result, arrAttributes);
+	if (arrAttributes_dispose) {
+		zval_ptr_dtor(&arrAttributes);
+	}
+	if (arrAttributes) {
+		COPY_PZVAL_TO_ZVAL(*return_value, result);
 	} else {
 		RETVAL_NULL();
 	}
