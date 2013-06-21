@@ -71,6 +71,7 @@ PHP_METHOD(Varien_Object, toArray);
 PHP_METHOD(Varien_Object, _prepareArray);
 PHP_METHOD(Varien_Object, __toXml);
 PHP_METHOD(Varien_Object, toXml);
+PHP_METHOD(Varien_Object, __toJson);
 
 ZEND_BEGIN_ARG_INFO_EX(vo_getData_arg_info, 0, 0, 0)
 	ZEND_ARG_INFO(0, key)
@@ -149,6 +150,10 @@ ZEND_BEGIN_ARG_INFO_EX(vo_toXml_arg_info, 0, 0, 0)
 	ZEND_ARG_INFO(0, addCdata)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(vo_toJson_arg_info, 0, 0, 0)
+	ZEND_ARG_ARRAY_INFO(0, arrAttributes, 0)
+ZEND_END_ARG_INFO()
+
 static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, __construct, NULL, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
 	PHP_ME(Varien_Object, _initOldFieldsMap, NULL, ZEND_ACC_PROTECTED)
@@ -176,6 +181,7 @@ static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, _prepareArray, vo__prepareArray_arg_info, ZEND_ACC_PROTECTED)
 	PHP_ME(Varien_Object, __toXml, vo_toXml_arg_info, ZEND_ACC_PROTECTED)
 	PHP_ME(Varien_Object, toXml, vo_toXml_arg_info, ZEND_ACC_PUBLIC)
+	PHP_ME(Varien_Object, __toJson, vo_toJson_arg_info, ZEND_ACC_PROTECTED)
 	PHP_FE_END
 };
 
@@ -2316,3 +2322,61 @@ PHP_METHOD(Varien_Object, toXml)
 	}
 }
 
+/* protected function __toJson(array $arrAttributes = array()) */
+PHP_METHOD(Varien_Object, __toJson)
+{
+	/* ---PHP---
+	$arrData = $this->toArray($arrAttributes);
+	$json = Zend_Json::encode($arrData);
+	return $json;
+	*/
+
+	zval *obj_zval = getThis();
+	zend_class_entry *obj_ce = Z_OBJCE_P(obj_zval);
+	zend_class_entry **zend_ce;
+	int num_args = ZEND_NUM_ARGS();
+	zval *arrAttributes = NULL;
+	zend_bool arrAttributes_dispose;
+	zval *arrData;
+	zval *json;
+
+	if (!return_value_used) {
+		return;
+	}
+
+	if (zend_parse_parameters(num_args TSRMLS_CC, "|a", &arrAttributes) == FAILURE) {
+		RETURN_FALSE;
+	}
+
+	/* Fetch arrData */
+	arrAttributes_dispose = FALSE;
+	if (!arrAttributes) {
+		MAKE_STD_ZVAL(arrAttributes);
+		array_init(arrAttributes);
+		arrAttributes_dispose = TRUE;
+	}
+	zend_call_method_with_1_params(&obj_zval, obj_ce, NULL, "toarray", &arrData, arrAttributes);
+	if (arrAttributes_dispose) {
+		zval_ptr_dtor(&arrAttributes);
+	}
+	if (!arrData || (Z_TYPE_P(arrData) != IS_ARRAY)) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "__toJson() expects toArray() to return array");
+		RETURN_FALSE;
+	}
+
+	/* Encode */
+	if (zend_lookup_class("Zend_Json", sizeof("Zend_Json") - 1, &zend_ce TSRMLS_CC) == FAILURE) {
+		php_error_docref(NULL TSRMLS_CC, E_ERROR, "Class Zend_Json, needed for json encoding, is not found");
+	}
+	zend_call_method_with_1_params(NULL, *zend_ce, NULL, "encode", &json, arrData);
+
+	/* Free resources */
+	zval_ptr_dtor(&arrData);
+
+	/* Result */
+	if (json) {
+		COPY_PZVAL_TO_ZVAL(*return_value, json);
+	} else {
+		RETVAL_NULL();
+	}
+}
