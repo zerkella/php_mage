@@ -262,4 +262,42 @@ class Varien_Object_methods_getDataTest extends PHPUnit_Framework_TestCase
             ),
         );
     }
+
+    /**
+     * Test, that when the object calls getData() in other object, and there is an exception,
+     * then everything goes fine.
+     *
+     * A wrong result may be a segmentation fault (i.e. extension didn't check the returned value).
+     *
+     * @param array $args
+     *
+     * @expectedException BadMethodCallException
+     * @expectedExceptionMessage some exception
+     * @dataProvider getDataSubExceptionDataProvider
+     */
+    public function testGetDataSubException($args)
+    {
+        $subObject = $this->getMock('Varien_Object', array('getData'));
+        $subObject->expects($this->once())
+            ->method('getData')
+            ->with('b', null)
+            ->will($this->throwException(new BadMethodCallException('some exception')));
+        $object = new Varien_Object(array('a' => $subObject));
+        $result = call_user_func_array(array($object, 'getData'), $args);
+    }
+
+    /**
+     * @return array
+     */
+    public static function getDataSubExceptionDataProvider()
+    {
+        return array(
+            'path key' => array(
+                array('a/b'),
+            ),
+            'key and index' => array(
+                array('a', 'b'),
+            ),
+        );
+    }
 }

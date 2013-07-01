@@ -196,4 +196,51 @@ class Varien_Object_methods_getSetIdTest extends PHPUnit_Framework_TestCase
         $actual = $object->getData();
         $this->assertSame($expected, $actual);
     }
+
+    /**
+     * Test, that when the method calls other method, and there is an exception, then everything goes fine.
+     * A wrong result may be a segmentation fault (i.e. extension didn't check the returned value).
+     *
+     * @param string $methodWithException
+     *
+     * @expectedException BadMethodCallException
+     * @expectedExceptionMessage some exception
+     * @dataProvider getIdSubExceptionDataProvider
+     *
+     */
+    public function testGetIdSubException($methodWithException)
+    {
+        $object = $this->getMock('Varien_Object', array($methodWithException));
+        $object->expects($this->once())
+            ->method($methodWithException)
+            ->will($this->throwException(new BadMethodCallException('some exception')));
+        $result = $object->getId();
+    }
+
+    /**
+     * @return array
+     */
+    public static function getIdSubExceptionDataProvider()
+    {
+        return array(
+            array('getIdFieldName'),
+            array('_getData'),
+        );
+    }
+
+    /**
+     * Test, that when the method calls other method, and there is an exception, then everything goes fine.
+     * A wrong result may be a segmentation fault (i.e. extension didn't check the returned value).
+     *
+     * @expectedException BadMethodCallException
+     * @expectedExceptionMessage some exception
+     */
+    public function testSetIdSubException()
+    {
+        $object = $this->getMock('Varien_Object', array('getIdFieldName'));
+        $object->expects($this->once())
+            ->method('getIdFieldName')
+            ->will($this->throwException(new BadMethodCallException('some exception')));
+        $result = $object->setId('value');
+    }
 }

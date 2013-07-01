@@ -88,4 +88,20 @@ class Varien_Object_methods_getDataUsingMethodTest extends PHPUnit_Framework_Tes
         $object = new Varien_Object();
         $object->getDataUsingMethod('data', 'a');
     }
+
+    /**
+     * Test, that when the method calls other method, and there is an exception, then everything goes fine.
+     * A wrong result may be a segmentation fault (i.e. extension didn't check the returned value).
+     *
+     * @expectedException BadMethodCallException
+     * @expectedExceptionMessage some exception
+     */
+    public function testGetDataUsingMethodSubException()
+    {
+        $object = $this->getMock('Varien_Object', array('getAnything'));
+        $object->expects($this->once())
+            ->method('getAnything')
+            ->will($this->throwException(new BadMethodCallException('some exception')));
+        $result = $object->getDataUsingMethod('anything');
+    }
 }

@@ -65,4 +65,20 @@ class Varien_Object_methods_toXmlTest extends PHPUnit_Framework_TestCase
             array('string'),
         );
     }
+
+    /**
+     * Test, that when the method calls other method, and there is an exception, then everything goes fine.
+     * A wrong result may be a segmentation fault (i.e. extension didn't check the returned value).
+     *
+     * @expectedException BadMethodCallException
+     * @expectedExceptionMessage some exception
+     */
+    public function testToXmlSubException()
+    {
+        $object = $this->getMock('Varien_Object', array('__toXml'));
+        $object->expects($this->once())
+            ->method('__toXml')
+            ->will($this->throwException(new BadMethodCallException('some exception')));
+        $result = $object->toXml();
+    }
 }

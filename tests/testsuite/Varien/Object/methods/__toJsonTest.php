@@ -101,4 +101,20 @@ class Varien_Object_methods___toJsonTest extends PHPUnit_Framework_TestCase
             array('string'),
         );
     }
+
+    /**
+     * Test, that when the method calls other method, and there is an exception, then everything goes fine.
+     * A wrong result may be a segmentation fault (i.e. extension didn't check the returned value).
+     *
+     * @expectedException BadMethodCallException
+     * @expectedExceptionMessage some exception
+     */
+    public function test__toJsonSubException()
+    {
+        $object = $this->getMock('Varien_Object', array('toArray'));
+        $object->expects($this->once())
+            ->method('toArray')
+            ->will($this->throwException(new BadMethodCallException('some exception')));
+        $result = $object->toArray();
+    }
 }
