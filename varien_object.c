@@ -2228,6 +2228,7 @@ PHP_METHOD(Varien_Object, __toXml)
 	}
 
 	/* Result and free resources */
+	smart_str_0(&result);
 	RETVAL_STRINGL(result.c, result.len, 0);
 	zval_ptr_dtor(&arrData);
 
