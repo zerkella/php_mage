@@ -73,6 +73,7 @@ PHP_METHOD(Varien_Object, __toXml);
 PHP_METHOD(Varien_Object, toXml);
 PHP_METHOD(Varien_Object, __toJson);
 PHP_METHOD(Varien_Object, toJson);
+PHP_METHOD(Varien_Object, toString);
 
 ZEND_BEGIN_ARG_INFO_EX(vo_getData_arg_info, 0, 0, 0)
 	ZEND_ARG_INFO(0, key)
@@ -155,6 +156,10 @@ ZEND_BEGIN_ARG_INFO_EX(vo_toJson_arg_info, 0, 0, 0)
 	ZEND_ARG_ARRAY_INFO(0, arrAttributes, 0)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(vo_toString_arg_info, 0, 0, 0)
+	ZEND_ARG_INFO(0, format)
+ZEND_END_ARG_INFO()
+
 static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, __construct, NULL, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
 	PHP_ME(Varien_Object, _initOldFieldsMap, NULL, ZEND_ACC_PROTECTED)
@@ -184,6 +189,7 @@ static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, toXml, vo_toXml_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, __toJson, vo_toJson_arg_info, ZEND_ACC_PROTECTED)
 	PHP_ME(Varien_Object, toJson, vo_toJson_arg_info, ZEND_ACC_PUBLIC)
+	PHP_ME(Varien_Object, toString, vo_toString_arg_info, ZEND_ACC_PUBLIC)
 	PHP_FE_END
 };
 
@@ -2469,6 +2475,276 @@ PHP_METHOD(Varien_Object, toJson)
 	if (!result) {
 		RETURN_FALSE;
 	}
-	
+
 	COPY_PZVAL_TO_ZVAL(*return_value, result);
+}
+
+/* Concat _data by comma */
+static void vo_toString_csv(zval *obj, zend_class_entry *obj_ce, zval *return_value TSRMLS_DC)
+{
+	/* ---PHP---
+	$str = implode(', ', $this->getData());
+	*/
+
+	zval *data;
+	HashTable *ht_data;
+	smart_str result = {0};
+	size_t newlen; /* For smart_str_alloc() */
+	zval **fieldValue;
+	zval *tmp_string = NULL;
+	zend_bool is_first;
+
+	zend_call_method_with_0_params(&obj, obj_ce, NULL, "getdata", &data);
+	if (!data) {
+		RETURN_FALSE;
+	}
+	if (Z_TYPE_P(data) != IS_ARRAY) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "getData() must return array for toString() method");
+		RETURN_FALSE;
+	}
+	ht_data = Z_ARRVAL_P(data);
+
+	smart_str_alloc(&result, zend_hash_num_elements(ht_data) * 15, 0); /* Estimate, that each value has ~13 symbols + 2 symbols for ", " */
+
+	for (zend_hash_internal_pointer_reset(ht_data), is_first = TRUE; zend_hash_has_more_elements(ht_data) == SUCCESS; zend_hash_move_forward(ht_data), is_first = FALSE) {
+		zend_hash_get_current_data(ht_data, (void **) &fieldValue);
+
+		if (!is_first) {
+			smart_str_appendl(&result, ", ", sizeof(", ") - 1);
+		}
+
+		if (Z_TYPE_PP(fieldValue) == IS_STRING) {
+			smart_str_appendl(&result, Z_STRVAL_PP(fieldValue), Z_STRLEN_PP(fieldValue));
+		} else {
+			if (!tmp_string) {
+				ALLOC_ZVAL(tmp_string);
+			}
+			MAKE_COPY_ZVAL(fieldValue, tmp_string);
+			convert_to_string(tmp_string);
+			smart_str_appendl(&result, Z_STRVAL_P(tmp_string), Z_STRLEN_P(tmp_string));
+		}
+	}
+
+	/* Result and free resources */
+	smart_str_0(&result);
+	RETVAL_STRINGL(result.c, result.len, 0);
+	zval_ptr_dtor(&data);
+	if (tmp_string) {
+		FREE_ZVAL(tmp_string);
+	}
+}
+
+static zend_bool vo_toString_extract_var(char *str, uint len, char **var, uint *var_len)
+{
+	#define BEFORE_BRACES 1
+	#define OPENED_BRACE1 2
+	#define OPENED_BRACE2 3
+	#define INSIDE_BRACES 4
+	#define CLOSED_BRACE1 5
+	#define CLOSED_BRACE2 6
+
+	int state;
+	char *current, *max_current;
+	char current_char;
+
+	max_current = str + len;
+	for (state = BEFORE_BRACES, current = str; (state != CLOSED_BRACE2) && (current <= max_current); current++) {
+		switch (state) {
+			case BEFORE_BRACES:
+				if (current[0] == '{') {
+					state = OPENED_BRACE1;
+				}
+				break;
+			case OPENED_BRACE1:
+				if (current[0] == '{') {
+					state = OPENED_BRACE2;
+				} else {
+					state = BEFORE_BRACES;
+				}
+				break;
+			case OPENED_BRACE2:
+				if (current[0] == '}') {
+					state = BEFORE_BRACES;
+					break;
+				}
+				*var = current;
+				state = INSIDE_BRACES;
+				/* break is absent intentionally */
+			case INSIDE_BRACES:
+				current_char = current[0];
+				if (current_char == '}') {
+					*var_len = current - *var;
+					state = CLOSED_BRACE1;
+				} else if (!(
+					((current_char >= 'a') && (current_char <= 'z')) 
+					|| ((current_char >= 'A') && (current_char <= 'Z')) 
+					|| ((current_char >= '0') && (current_char <= '9')) 
+					|| (current_char == '_')
+				)) {
+					state = BEFORE_BRACES;
+				}
+				break;
+			case CLOSED_BRACE1:
+				if (current[0] == '}') {
+					state = CLOSED_BRACE2;
+				} else {
+					state = BEFORE_BRACES;
+				}
+				break;
+		}
+	}
+
+	if (state == CLOSED_BRACE2) {
+		return TRUE;
+	} else {
+		return FALSE;
+	}
+
+	#undef BEFORE_BRACES
+	#undef OPENED_BRACE1
+	#undef OPENED_BRACE2
+	#undef INSIDE_BRACES
+	#undef CLOSED_BRACE1
+	#undef CLOSED_BRACE2
+}
+
+/* Fill the placeholders (e.g. {{var}}) in format, and return as return_value */
+static void vo_toString_by_format(zval *obj_zval, zend_class_entry *obj_ce, zval *format_zval, zval *return_value TSRMLS_DC)
+{
+	smart_str result = {0};
+	zval *tmp_format = NULL;
+	char *format, *current, *var;
+	uint format_len, current_len, var_len, portion_len;
+	uint newlen; /* For smart_str_alloc() */
+	zval *getData_arg;
+	zval *tmp_retval;
+
+	#define FREE_TOSTRING_RESOURCES {				\
+		if (getData_arg) {							\
+			zval_ptr_dtor(&getData_arg);			\
+		}											\
+		if (tmp_format) {							\
+			zval_ptr_dtor(&tmp_format);				\
+		}											\
+	}
+
+
+	/* ---PHP---
+	preg_match_all('/\{\{([a-z0-9_]+)\}\}/is', $format, $matches);
+	foreach ($matches[1] as $var) {
+		$format = str_replace('{{'.$var.'}}', $this->getData($var), $format);
+	}
+	$str = $format;
+	*/
+
+	/* Convert format to string to work with */
+	if (Z_TYPE_P(format_zval) == IS_STRING) {
+		format = Z_STRVAL_P(format_zval);
+		format_len = Z_STRLEN_P(format_zval);
+	} else {
+		ALLOC_ZVAL(tmp_format);
+		MAKE_COPY_ZVAL(&format_zval, tmp_format);
+		convert_to_string(tmp_format);
+		format = Z_STRVAL_P(tmp_format);
+		format_len = Z_STRLEN_P(tmp_format);
+	}
+
+	/* Edge case, when the length is so small, that there are definitely no placeholders. Minimal placeholder has 5 symbols, e.g. "{{a}}" */
+	if (format_len < 5) {
+		if (tmp_format) {
+			RETURN_ZVAL(tmp_format, FALSE, FALSE);
+			FREE_ZVAL(tmp_format);
+		} else {
+			RETURN_ZVAL(format_zval, TRUE, FALSE);
+		}
+	}
+
+	/* Allocate memory for result */
+	smart_str_alloc(&result, format_len + 10 * 10, 0); /* Estimate, that there are 10 placeholders, and each replacement will increase length by 10 symbols */
+
+	/* Go through the format string and replace all the placeholders in the form of {{var}} */
+	ALLOC_INIT_ZVAL(getData_arg);
+	ZVAL_NULL(getData_arg);
+	for (
+		current = format, current_len = format_len; 
+		(current_len >= 5) && vo_toString_extract_var(current, current_len, &var, &var_len); /* 5 is the length of a minimal placeholder */
+		current = var + var_len + 2, current_len = format_len - (current - format) /* 2 is the number of curly braces after the variable */
+	) {
+		/* Add portion before placeholder var */
+		portion_len = var - current - 2; /* 2 is the number of curly braces before var */
+		if (portion_len) {
+			smart_str_appendl(&result, current, portion_len);
+		}
+
+		/* Free resources from previous iteration */
+		if (Z_TYPE_P(getData_arg) == IS_STRING) {
+			efree(Z_STRVAL_P(getData_arg));
+		}
+
+		/* Call getData() */
+		ZVAL_STRINGL(getData_arg, var, var_len, TRUE); /* Duplicate in order to add NULL to the end */
+		zend_call_method_with_1_params(&obj_zval, obj_ce, NULL, "getdata", &tmp_retval, getData_arg);
+		if (!tmp_retval) {
+			FREE_TOSTRING_RESOURCES;
+			RETURN_FALSE;
+		}
+
+		/* Extract string */
+		if (Z_TYPE_P(tmp_retval) != IS_STRING) {
+			convert_to_string(tmp_retval);
+		}
+		smart_str_appendl(&result, Z_STRVAL_P(tmp_retval), Z_STRLEN_P(tmp_retval));
+		zval_ptr_dtor(&tmp_retval);
+	}
+
+	/* Append whatever is left from going through the format string */
+	if (current_len) {
+		smart_str_appendl(&result, current, current_len);
+	}
+
+	/* Result */
+	smart_str_0(&result);
+	RETVAL_STRINGL(result.c, result.len, FALSE);
+
+	/* Free memory */
+	FREE_TOSTRING_RESOURCES;
+
+	#undef FREE_TOSTRING_RESOURCES
+}
+
+
+/* public function toString($format='') */
+PHP_METHOD(Varien_Object, toString)
+{
+	/* ---PHP---
+	if (empty($format)) {
+		$str = implode(', ', $this->getData());
+	} else {
+		preg_match_all('/\{\{([a-z0-9_]+)\}\}/is', $format, $matches);
+		foreach ($matches[1] as $var) {
+			$format = str_replace('{{'.$var.'}}', $this->getData($var), $format);
+		}
+		$str = $format;
+	}
+	return $str;
+	*/
+
+	zval *obj_zval = getThis();
+	zend_class_entry *obj_ce = Z_OBJCE_P(obj_zval);
+	int num_args = ZEND_NUM_ARGS();
+	zval *format = NULL;
+
+	if (!return_value_used) {
+		return;
+	}
+
+	if (zend_parse_parameters(num_args TSRMLS_CC, "|z!", &format) == FAILURE) {
+		RETURN_FALSE;
+	}
+
+	if (!format || !i_zend_is_true(format)) {
+		vo_toString_csv(obj_zval, obj_ce, return_value TSRMLS_CC);
+	} else {
+		vo_toString_by_format(obj_zval, obj_ce, format, return_value TSRMLS_CC);
+	}
 }
