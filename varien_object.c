@@ -1597,7 +1597,7 @@ static inline void vo_camelize_without_caps(char *str, uint str_len, char *prefi
 			result[result_len++] = symbol;
 		}
 	}
-	result[result_len++] = '\0';
+	result[result_len] = '\0';
 
 	*res = result;
 	*res_len = result_len;
@@ -1653,7 +1653,7 @@ PHP_METHOD(Varien_Object, setDataUsingMethod)
 	vo_camelize_without_caps(key, key_len, "set", sizeof("set") - 1, &method, &method_len TSRMLS_CC);
 
 	/* Call the method */
-	zend_call_method(&obj_zval, Z_OBJCE_P(obj_zval), NULL, method, method_len - 1, NULL, 1, args, NULL TSRMLS_CC);
+	zend_call_method(&obj_zval, Z_OBJCE_P(obj_zval), NULL, method, method_len, NULL, 1, args, NULL TSRMLS_CC);
 
 	/* Free memory */
 	efree(method);
@@ -1718,7 +1718,7 @@ PHP_METHOD(Varien_Object, getDataUsingMethod)
 
 	/* Call the method */
 	retval_ptr_ptr = return_value_used ? emalloc(sizeof(zval *)) : NULL;
-	zend_call_method(&obj_zval, Z_OBJCE_P(obj_zval), NULL, method, method_len - 1, retval_ptr_ptr, 1, args, NULL TSRMLS_CC);
+	zend_call_method(&obj_zval, Z_OBJCE_P(obj_zval), NULL, method, method_len, retval_ptr_ptr, 1, args, NULL TSRMLS_CC);
 
 	/* Free memory */
 	efree(method);
