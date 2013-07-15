@@ -2624,7 +2624,7 @@ static void vo_toString_by_format(zval *obj_zval, zend_class_entry *obj_ce, zval
 	zval *tmp_format = NULL;
 	char *format, *current, *var;
 	uint format_len, current_len, var_len, portion_len;
-	uint newlen; /* For smart_str_alloc() */
+	size_t newlen; /* For smart_str_alloc() */
 	zval *getData_arg;
 	zval *tmp_retval;
 
