@@ -1,0 +1,7 @@
+<?php
+/**
+ * The class is just a descendant of the Varien_Object, nothing is changed
+ */
+class Zerkella_PhpMage_Varien_Object_Descendant_Dummy extends Varien_Object
+{
+}

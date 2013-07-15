@@ -53,6 +53,7 @@ class Varien_ObjectTest extends PHPUnit_Framework_TestCase
             array('__toJson', array('protected')),
             array('toJson', array('public')),
             array('toString', array('public')),
+            array('__call', array('public')),
         );
     }
 

@@ -1,5 +1,6 @@
 #include "php.h"
 #include "zend_interfaces.h"
+#include "zend_exceptions.h"
 #include "ext/standard/php_smart_str.h"
 #include "ext/standard/php_string.h"
 #include "varien_object.h"
@@ -74,6 +75,7 @@ PHP_METHOD(Varien_Object, toXml);
 PHP_METHOD(Varien_Object, __toJson);
 PHP_METHOD(Varien_Object, toJson);
 PHP_METHOD(Varien_Object, toString);
+PHP_METHOD(Varien_Object, __call);
 
 ZEND_BEGIN_ARG_INFO_EX(vo_getData_arg_info, 0, 0, 0)
 	ZEND_ARG_INFO(0, key)
@@ -160,6 +162,11 @@ ZEND_BEGIN_ARG_INFO_EX(vo_toString_arg_info, 0, 0, 0)
 	ZEND_ARG_INFO(0, format)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(vo___call_arg_info, 0, 0, 2)
+	ZEND_ARG_INFO(0, method)
+	ZEND_ARG_INFO(0, args)
+ZEND_END_ARG_INFO()
+
 static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, __construct, NULL, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
 	PHP_ME(Varien_Object, _initOldFieldsMap, NULL, ZEND_ACC_PROTECTED)
@@ -190,6 +197,7 @@ static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, __toJson, vo_toJson_arg_info, ZEND_ACC_PROTECTED)
 	PHP_ME(Varien_Object, toJson, vo_toJson_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, toString, vo_toString_arg_info, ZEND_ACC_PUBLIC)
+	PHP_ME(Varien_Object, __call, vo___call_arg_info, ZEND_ACC_PUBLIC)
 	PHP_FE_END
 };
 
@@ -2748,4 +2756,191 @@ PHP_METHOD(Varien_Object, toString)
 	} else {
 		vo_toString_by_format(obj_zval, obj_ce, format, return_value TSRMLS_CC);
 	}
+}
+
+/* Lowercase the string and put underscores before former uppercase letters. First letter is never prepended with underscore.
+Example: "FinalProductPrice" => "final_product_price". */
+static inline void vo_underscore(char *str, uint str_len, char **res, uint *res_len TSRMLS_DC)
+{
+	smart_str result = {0};
+	size_t newlen; /* For smart_str_alloc() */
+	uint i;
+	char current;
+	char *walk_start;
+
+	smart_str_alloc(&result, str_len + 10, 0); /* Expect, that there will be no more than 10 underscores added */
+
+	/* Go through symbols, lowercase and underscore them */
+	walk_start = NULL;
+	for (i = 0; i < str_len; i++) {
+		current = str[i];
+		if ((current >= 'A') && (current <= 'Z')) {
+			/* Add processed symbols, if any */
+			if (walk_start) {
+				smart_str_appendl(&result, walk_start, str + i - walk_start);
+				walk_start = NULL;
+			}
+			/* Add underscore, if not first symbol */
+			if (i) {
+				smart_str_appendc(&result, '_');
+			}
+			/* Add lowercased symbol */
+			current += 'a' - 'A';
+			smart_str_appendc(&result, current);
+		} else {
+			if (!walk_start) {
+				walk_start = str + i;
+			}
+		}
+	}
+	if (walk_start) {
+		smart_str_appendl(&result, walk_start, str + str_len - walk_start);
+	}
+
+	smart_str_0(&result);
+
+	*res_len = result.len;
+	*res = result.c;
+}
+
+/* public function __call($method, $args) */
+PHP_METHOD(Varien_Object, __call)
+{
+	/* ---PHP---
+	switch (substr($method, 0, 3)) {
+		case 'get' :
+			//Varien_Profiler::start('GETTER: '.get_class($this).'::'.$method);
+			$key = $this->_underscore(substr($method,3));
+			$data = $this->getData($key, isset($args[0]) ? $args[0] : null);
+			//Varien_Profiler::stop('GETTER: '.get_class($this).'::'.$method);
+			return $data;
+
+		case 'set' :
+			//Varien_Profiler::start('SETTER: '.get_class($this).'::'.$method);
+			$key = $this->_underscore(substr($method,3));
+			$result = $this->setData($key, isset($args[0]) ? $args[0] : null);
+			//Varien_Profiler::stop('SETTER: '.get_class($this).'::'.$method);
+			return $result;
+
+		case 'uns' :
+			//Varien_Profiler::start('UNS: '.get_class($this).'::'.$method);
+			$key = $this->_underscore(substr($method,3));
+			$result = $this->unsetData($key);
+			//Varien_Profiler::stop('UNS: '.get_class($this).'::'.$method);
+			return $result;
+
+		case 'has' :
+			//Varien_Profiler::start('HAS: '.get_class($this).'::'.$method);
+			$key = $this->_underscore(substr($method,3));
+			//Varien_Profiler::stop('HAS: '.get_class($this).'::'.$method);
+			return isset($this->_data[$key]);
+	}
+	throw new Varien_Exception("Invalid method ".get_class($this)."::".$method."(".print_r($args,1).")");
+	*/
+
+	zval *obj_zval = getThis();
+	zend_class_entry *obj_ce = Z_OBJCE_P(obj_zval);
+	zend_class_entry **vex;
+	int num_args = ZEND_NUM_ARGS();
+	char *method, *key;
+	uint method_len, key_len;
+	zval *key_zval = NULL;
+	HashTable *ht_args;
+	zval **arg0;
+	zval *retval;
+	zval **retval_p;
+	zval **tmp_pzval;
+	zval **data_pzval;
+
+	if (zend_parse_parameters(num_args TSRMLS_CC, "sH", &method, &method_len, &ht_args) == FAILURE) {
+		RETURN_FALSE;
+	}
+	
+	/* Perform appropriate action */
+	if (method_len >= 3) {
+		if ((method[0] == 'g') && (method[1] == 'e') && (method[2] == 't')) {
+			/* ---get--- */
+			if (return_value_used) {
+				vo_underscore(method + 3, method_len - 3, &key, &key_len TSRMLS_CC);
+				ALLOC_INIT_ZVAL(key_zval);
+				ZVAL_STRINGL(key_zval, key, key_len, 1);
+				if (zend_hash_index_find(ht_args, 0, (void **) &arg0) == SUCCESS) {
+					zend_call_method_with_2_params(&obj_zval, obj_ce, NULL, "getdata", &retval, key_zval, *arg0);
+				} else {
+					zend_call_method_with_1_params(&obj_zval, obj_ce, NULL, "getdata", &retval, key_zval);
+				}
+				zval_ptr_dtor(&key_zval);
+				efree(key);
+
+				if (retval) {
+					COPY_PZVAL_TO_ZVAL(*return_value, retval);
+				} else {
+					RETVAL_FALSE;
+				}
+			}
+			return;
+		} else if ((method[0] == 's') && (method[1] == 'e') && (method[2] == 't')) {
+			/* ---set--- */
+			retval_p = return_value_used ? &retval : NULL;
+			vo_underscore(method + 3, method_len - 3, &key, &key_len TSRMLS_CC);
+			ALLOC_INIT_ZVAL(key_zval);
+			ZVAL_STRINGL(key_zval, key, key_len, 1);
+			if (zend_hash_index_find(ht_args, 0, (void **) &arg0) == SUCCESS) {
+				zend_call_method_with_2_params(&obj_zval, obj_ce, NULL, "setdata", retval_p, key_zval, *arg0);
+			} else {
+				zend_call_method_with_1_params(&obj_zval, obj_ce, NULL, "setdata", retval_p, key_zval);
+			}
+			zval_ptr_dtor(&key_zval);
+			efree(key);
+
+			if (retval_p) {
+				if (*retval_p) {
+					COPY_PZVAL_TO_ZVAL(*return_value, *retval_p);
+				} else {
+					RETVAL_FALSE;
+				}
+			}
+			return;
+		} else if ((method[0] == 'u') && (method[1] == 'n') && (method[2] == 's')) {
+			/* ---uns--- */
+			retval_p = return_value_used ? &retval : NULL;
+			vo_underscore(method + 3, method_len - 3, &key, &key_len TSRMLS_CC);
+			ALLOC_INIT_ZVAL(key_zval);
+			ZVAL_STRINGL(key_zval, key, key_len, 1);
+			zend_call_method_with_1_params(&obj_zval, obj_ce, NULL, "unsetdata", &retval, key_zval);
+			zval_ptr_dtor(&key_zval);
+			efree(key);
+
+			if (retval_p) {
+				if (*retval_p) {
+					COPY_PZVAL_TO_ZVAL(*return_value, *retval_p);
+				} else {
+					RETVAL_FALSE;
+				}
+			}
+			return;
+		} else if ((method[0] == 'h') && (method[1] == 'a') && (method[2] == 's')) {
+			/* ---has--- */
+			if (return_value_used) {
+				vo_underscore(method + 3, method_len - 3, &key, &key_len TSRMLS_CC);
+				vo_extract_data_property(obj_zval, &data_pzval);
+				if (Z_TYPE_PP(data_pzval) != IS_ARRAY) {
+					php_error_docref(NULL TSRMLS_CC, E_ERROR, "_data property must be array");
+				}
+
+				if (zend_symtable_find(Z_ARRVAL_PP(data_pzval), key, key_len + 1, (void **) &tmp_pzval) == SUCCESS) {
+					RETVAL_BOOL(Z_TYPE_PP(tmp_pzval) != IS_NULL);
+				} else {
+					RETVAL_FALSE;
+				}
+			}
+			return;
+		}
+	}
+
+	/* Unknown method called - throw exception */
+	if (zend_lookup_class("Varien_Exception", sizeof("Varien_Exception") - 1, &vex TSRMLS_CC) == FAILURE) {
+		php_error_docref(NULL TSRMLS_CC, E_ERROR, "Class Varien_Exception is required to throw an exception in Varien_Object::__call()");
+	}
+	zend_throw_exception_ex(*vex, 0 TSRMLS_CC, "Invalid method %s::%s", obj_ce->name, method);
 }
