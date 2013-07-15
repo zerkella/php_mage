@@ -61,6 +61,16 @@ class Varien_Object_methods_getDataUsingMethodTest extends PHPUnit_Framework_Tes
                 'some_string',
                 'getFinalPrice'
             ),
+            'uppercase method name' => array(
+                'Final_Price',
+                'some_string',
+                'getFinalPrice'
+            ),
+            'uppercase method name without underscores' => array(
+                'Final_PriceData',
+                'some_string',
+                'getFinalPriceData'
+            ),
         );
     }
 

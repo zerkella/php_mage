@@ -60,6 +60,16 @@ class Varien_Object_methods_setDataUsingMethodTest extends PHPUnit_Framework_Tes
                 'some_string',
                 'setFinalPrice'
             ),
+            'uppercase method name' => array(
+                'Final_Price',
+                'some_string',
+                'setFinalPrice'
+            ),
+            'uppercase method name without underscores' => array(
+                'Final_PriceData',
+                'some_string',
+                'setFinalPriceData'
+            ),
         );
     }
 

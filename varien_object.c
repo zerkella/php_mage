@@ -1594,6 +1594,9 @@ static inline void vo_camelize_without_caps(char *str, uint str_len, char *prefi
 	for (i = 0; i < str_len; i++) {
 		symbol = str[i];
 		if (symbol != '_') {
+			if ((symbol >= 'A') && (symbol <= 'Z')) {
+				symbol += 'a' - 'A';
+			}
 			result[result_len++] = symbol;
 		}
 	}
