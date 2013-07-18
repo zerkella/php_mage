@@ -82,4 +82,41 @@ class Varien_Object_methods_setDataUsingMethodTest extends PHPUnit_Framework_Tes
 
         $object->setDataUsingMethod('something');
     }
+
+    /**
+     * Test, that when the method calls other method, and there is an exception, then everything goes fine.
+     * A wrong result may be a segmentation fault (i.e. extension didn't check the returned value).
+     *
+     * @param string $key
+     * @param string $expectedMethod
+     * @expectedException BadMethodCallException
+     * @expectedExceptionMessage some exception
+     * @dataProvider setDataUsingMethodSubExceptionDataProvider
+     */
+    public function testSetDataUsingMethodSubException($key, $expectedMethod)
+    {
+        $object = $this->getMock('Varien_Object', array($expectedMethod));
+        $object->expects($this->once())
+            ->method($expectedMethod)
+            ->will($this->throwException(new BadMethodCallException('some exception')));
+        $result = $object->setDataUsingMethod($key, 1);
+    }
+
+    /**
+     * @return array
+     */
+    public static function setDataUsingMethodSubExceptionDataProvider()
+    {
+        return array(
+            'usual method' => array('anything', 'setAnything'),
+            'via magic method' => array('anything', 'setData'),
+        );
+    }
+
+    public function testSetDataUsingMethodThroughMagicCallWithoutGettingResult()
+    {
+        $object = new Varien_Object(array('final_price' => '$15.00'));
+        $object->setDataUsingMethod('final_price', '$30.00');
+        $this->assertEquals('$30.00', $object->getData('final_price'));
+    }
 }

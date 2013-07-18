@@ -83,7 +83,7 @@ class Varien_Object_methods_getDataUsingMethodTest extends PHPUnit_Framework_Tes
         $object = $this->getMock('Varien_Object', array('getSomething'));
         $object->expects($this->once())
             ->method('getSomething')
-            ->with(array())
+            ->with(null)
             ->will($this->returnValue($returnedResult));
 
         $actualResult = $object->getDataUsingMethod('something');
@@ -103,15 +103,37 @@ class Varien_Object_methods_getDataUsingMethodTest extends PHPUnit_Framework_Tes
      * Test, that when the method calls other method, and there is an exception, then everything goes fine.
      * A wrong result may be a segmentation fault (i.e. extension didn't check the returned value).
      *
+     * @param string $key
+     * @param string $expectedMethod
      * @expectedException BadMethodCallException
      * @expectedExceptionMessage some exception
+     * @dataProvider getDataUsingMethodSubExceptionDataProvider
      */
-    public function testGetDataUsingMethodSubException()
+    public function testGetDataUsingMethodSubException($key, $expectedMethod)
     {
-        $object = $this->getMock('Varien_Object', array('getAnything'));
+        $object = $this->getMock('Varien_Object', array($expectedMethod));
         $object->expects($this->once())
-            ->method('getAnything')
+            ->method($expectedMethod)
             ->will($this->throwException(new BadMethodCallException('some exception')));
-        $result = $object->getDataUsingMethod('anything');
+        $result = $object->getDataUsingMethod($key);
+    }
+
+    /**
+     * @return array
+     */
+    public static function getDataUsingMethodSubExceptionDataProvider()
+    {
+        return array(
+            'usual method' => array('anything', 'getAnything'),
+            'via magic method' => array('anything', 'getData'),
+        );
+    }
+
+
+    public function testGetDataUsingMethodThroughMagicCall()
+    {
+        $object = new Varien_Object(array('final_price' => '$15.00'));
+        $result = $object->getDataUsingMethod('final_price');
+        $this->assertEquals('$15.00', $result);
     }
 }

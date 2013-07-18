@@ -1573,14 +1573,15 @@ PHP_METHOD(Varien_Object, _getData)
 	MAKE_COPY_ZVAL(value, return_value);
 }
 
-/* This func would camelize string (e.g. "abcd_ef" => "AbcdEf"), but as soon as PHP internally needs method name without caps, then no capitalization occurs. 
+/* This func camelizes string (e.g. "abcd_ef" => "AbcdEf"). 
 Prefix is not needed for actual camelization, just embedded here for optimization. */
-static inline void vo_camelize_without_caps(char *str, uint str_len, char *prefix, uint prefix_len, char **res, uint *res_len TSRMLS_DC)
+static inline void vo_camelize(char *str, uint str_len, char *prefix, uint prefix_len, char **res, uint *res_len TSRMLS_DC)
 {
 	char symbol;
 	uint i;
 	char *result;
 	uint result_len;
+	zend_bool camelize_next;
 
 	result = emalloc(prefix_len + str_len);
 	result_len = 0;
@@ -1591,11 +1592,17 @@ static inline void vo_camelize_without_caps(char *str, uint str_len, char *prefi
 		result_len = prefix_len;
 	}
 
+	camelize_next = TRUE;
 	for (i = 0; i < str_len; i++) {
 		symbol = str[i];
-		if (symbol != '_') {
-			if ((symbol >= 'A') && (symbol <= 'Z')) {
-				symbol += 'a' - 'A';
+		if (symbol == '_') {
+			camelize_next = TRUE;
+		} else {
+			if (camelize_next) {
+				if ((symbol >= 'a') && (symbol <= 'z')) {
+					symbol += 'A' - 'a';
+				}
+				camelize_next = FALSE;
 			}
 			result[result_len++] = symbol;
 		}
@@ -1653,10 +1660,10 @@ PHP_METHOD(Varien_Object, setDataUsingMethod)
 	}
 
 	/* Compose name of the method to be used */
-	vo_camelize_without_caps(key, key_len, "set", sizeof("set") - 1, &method, &method_len TSRMLS_CC);
+	vo_camelize(key, key_len, "set", sizeof("set") - 1, &method, &method_len TSRMLS_CC);
 
 	/* Call the method */
-	zend_call_method(&obj_zval, Z_OBJCE_P(obj_zval), NULL, method, method_len, NULL, 1, args, NULL TSRMLS_CC);
+	zend_call_method(&obj_zval, NULL, NULL, method, method_len, NULL, 1, args, NULL TSRMLS_CC);
 
 	/* Free memory */
 	efree(method);
@@ -1670,7 +1677,7 @@ PHP_METHOD(Varien_Object, setDataUsingMethod)
 	}
 }
 
-/* public function getDataUsingMethod($key, $args=array()) */
+/* public function getDataUsingMethod($key, $args=null) */
 PHP_METHOD(Varien_Object, getDataUsingMethod)
 {
 	/* ---PHP---
@@ -1684,7 +1691,6 @@ PHP_METHOD(Varien_Object, getDataUsingMethod)
 	char *key;
 	uint key_len;
 	zval *args;
-	HashTable *ht_args;
 	zend_bool is_free_args;
 	char *method;
 	uint method_len;
@@ -1704,24 +1710,16 @@ PHP_METHOD(Varien_Object, getDataUsingMethod)
 	is_free_args = 0;
 	if (args == NULL) {
 		is_free_args = 1;
-
-		ALLOC_HASHTABLE(ht_args);
-		if (zend_hash_init(ht_args, 0, NULL, ZVAL_PTR_DTOR, TRUE) == FAILURE) {
-			FREE_HASHTABLE(ht_args);
-			php_error_docref(NULL TSRMLS_CC, E_ERROR, "Unable to init HashTable for $args variable");
-		}
-
 		MAKE_STD_ZVAL(args);
-		Z_TYPE_P(args) = IS_ARRAY;
-		Z_ARRVAL_P(args) = ht_args;
+		ZVAL_NULL(args);
 	}
 
 	/* Compose name of the method to be used */
-	vo_camelize_without_caps(key, key_len, "get", sizeof("get") - 1, &method, &method_len TSRMLS_CC);
+	vo_camelize(key, key_len, "get", sizeof("get") - 1, &method, &method_len TSRMLS_CC);
 
 	/* Call the method */
 	retval_ptr_ptr = return_value_used ? emalloc(sizeof(zval *)) : NULL;
-	zend_call_method(&obj_zval, Z_OBJCE_P(obj_zval), NULL, method, method_len, retval_ptr_ptr, 1, args, NULL TSRMLS_CC);
+	zend_call_method(&obj_zval, NULL, NULL, method, method_len, retval_ptr_ptr, 1, args, NULL TSRMLS_CC);
 
 	/* Free memory */
 	efree(method);
