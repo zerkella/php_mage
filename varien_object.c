@@ -77,6 +77,7 @@ PHP_METHOD(Varien_Object, toJson);
 PHP_METHOD(Varien_Object, toString);
 PHP_METHOD(Varien_Object, __call);
 PHP_METHOD(Varien_Object, __get);
+PHP_METHOD(Varien_Object, __set);
 
 ZEND_BEGIN_ARG_INFO_EX(vo_getData_arg_info, 0, 0, 0)
 	ZEND_ARG_INFO(0, key)
@@ -172,6 +173,11 @@ ZEND_BEGIN_ARG_INFO_EX(vo___get_arg_info, 0, 0, 1)
 	ZEND_ARG_INFO(0, var)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(vo___set_arg_info, 0, 0, 2)
+	ZEND_ARG_INFO(0, var)
+	ZEND_ARG_INFO(0, value)
+ZEND_END_ARG_INFO()
+
 static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, __construct, NULL, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
 	PHP_ME(Varien_Object, _initOldFieldsMap, NULL, ZEND_ACC_PROTECTED)
@@ -204,6 +210,7 @@ static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, toString, vo_toString_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, __call, vo___call_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, __get, vo___get_arg_info, ZEND_ACC_PUBLIC)
+	PHP_ME(Varien_Object, __set, vo___set_arg_info, ZEND_ACC_PUBLIC)
 	PHP_FE_END
 };
 
@@ -2993,4 +3000,36 @@ PHP_METHOD(Varien_Object, __get)
 	} else {
 		RETVAL_FALSE;
 	}
+}
+
+/* public function __set($var) */
+PHP_METHOD(Varien_Object, __set)
+{
+	/* ---PHP---
+	$var = $this->_underscore($var);
+	$this->setData($var, $value);
+	*/
+
+	zval *obj_zval = getThis();
+	zend_class_entry *obj_ce = Z_OBJCE_P(obj_zval);
+	int num_args = ZEND_NUM_ARGS();
+	char *var, *var_u;
+	uint var_len, var_u_len;
+	zval *var_zval, *value_zval;
+
+	if (zend_parse_parameters(num_args TSRMLS_CC, "s!z", &var, &var_len, &value_zval) == FAILURE) {
+		RETURN_FALSE;
+	}
+
+	ALLOC_INIT_ZVAL(var_zval);
+	if (!var) {
+		ZVAL_NULL(var_zval);
+	} else {
+		vo_underscore(var, var_len, &var_u, &var_u_len TSRMLS_CC);
+		ZVAL_STRINGL(var_zval, var_u, var_u_len, 1);
+		efree(var_u);
+	}
+
+	zend_call_method_with_2_params(&obj_zval, obj_ce, NULL, "setdata", NULL, var_zval, value_zval);
+	zval_ptr_dtor(&var_zval);
 }
