@@ -76,6 +76,7 @@ PHP_METHOD(Varien_Object, __toJson);
 PHP_METHOD(Varien_Object, toJson);
 PHP_METHOD(Varien_Object, toString);
 PHP_METHOD(Varien_Object, __call);
+PHP_METHOD(Varien_Object, __get);
 
 ZEND_BEGIN_ARG_INFO_EX(vo_getData_arg_info, 0, 0, 0)
 	ZEND_ARG_INFO(0, key)
@@ -167,6 +168,10 @@ ZEND_BEGIN_ARG_INFO_EX(vo___call_arg_info, 0, 0, 2)
 	ZEND_ARG_INFO(0, args)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(vo___get_arg_info, 0, 0, 1)
+	ZEND_ARG_INFO(0, var)
+ZEND_END_ARG_INFO()
+
 static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, __construct, NULL, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
 	PHP_ME(Varien_Object, _initOldFieldsMap, NULL, ZEND_ACC_PROTECTED)
@@ -198,6 +203,7 @@ static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, toJson, vo_toJson_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, toString, vo_toString_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, __call, vo___call_arg_info, ZEND_ACC_PUBLIC)
+	PHP_ME(Varien_Object, __get, vo___get_arg_info, ZEND_ACC_PUBLIC)
 	PHP_FE_END
 };
 
@@ -2944,4 +2950,47 @@ PHP_METHOD(Varien_Object, __call)
 		php_error_docref(NULL TSRMLS_CC, E_ERROR, "Class Varien_Exception is required to throw an exception in Varien_Object::__call()");
 	}
 	zend_throw_exception_ex(*vex, 0 TSRMLS_CC, "Invalid method %s::%s", obj_ce->name, method);
+}
+
+/* public function __get($var) */
+PHP_METHOD(Varien_Object, __get)
+{
+	/* ---PHP---
+	$var = $this->_underscore($var);
+	return $this->getData($var);
+	*/
+
+	zval *obj_zval = getThis();
+	zend_class_entry *obj_ce = Z_OBJCE_P(obj_zval);
+	int num_args = ZEND_NUM_ARGS();
+	char *var, *var_u;
+	uint var_len, var_u_len;
+	zval *var_zval;
+	zval *retval;
+
+	if (!return_value_used) {
+		return;
+	}
+
+	if (zend_parse_parameters(num_args TSRMLS_CC, "s!", &var, &var_len) == FAILURE) {
+		RETURN_FALSE;
+	}
+
+	ALLOC_INIT_ZVAL(var_zval);
+	if (!var) {
+		ZVAL_NULL(var_zval);
+	} else {
+		vo_underscore(var, var_len, &var_u, &var_u_len TSRMLS_CC);
+		ZVAL_STRINGL(var_zval, var_u, var_u_len, 1);
+		efree(var_u);
+	}
+
+	zend_call_method_with_1_params(&obj_zval, obj_ce, NULL, "getdata", &retval, var_zval);
+	zval_ptr_dtor(&var_zval);
+
+	if (retval) {
+		COPY_PZVAL_TO_ZVAL(*return_value, retval);
+	} else {
+		RETVAL_FALSE;
+	}
 }
