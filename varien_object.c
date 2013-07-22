@@ -78,6 +78,7 @@ PHP_METHOD(Varien_Object, toString);
 PHP_METHOD(Varien_Object, __call);
 PHP_METHOD(Varien_Object, __get);
 PHP_METHOD(Varien_Object, __set);
+PHP_METHOD(Varien_Object, isEmpty);
 
 ZEND_BEGIN_ARG_INFO_EX(vo_getData_arg_info, 0, 0, 0)
 	ZEND_ARG_INFO(0, key)
@@ -211,6 +212,7 @@ static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, __call, vo___call_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, __get, vo___get_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, __set, vo___set_arg_info, ZEND_ACC_PUBLIC)
+	PHP_ME(Varien_Object, isEmpty, NULL, ZEND_ACC_PUBLIC)
 	PHP_FE_END
 };
 
@@ -3032,4 +3034,25 @@ PHP_METHOD(Varien_Object, __set)
 
 	zend_call_method_with_2_params(&obj_zval, obj_ce, NULL, "setdata", NULL, var_zval, value_zval);
 	zval_ptr_dtor(&var_zval);
+}
+
+/* public function isEmpty() */
+PHP_METHOD(Varien_Object, isEmpty)
+{
+	/* ---PHP---
+	if (empty($this->_data)) {
+		return true;
+	}
+	return false;
+	*/
+
+	zval *obj_zval = getThis();
+	zval **data;
+
+	if (!return_value_used) {
+		return;
+	}
+
+	vo_extract_data_property(obj_zval, &data);
+	RETURN_BOOL(!i_zend_is_true(*data));
 }

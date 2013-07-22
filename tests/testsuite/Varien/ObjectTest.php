@@ -56,6 +56,7 @@ class Varien_ObjectTest extends PHPUnit_Framework_TestCase
             array('__call', array('public')),
             array('__get', array('public')),
             array('__set', array('public')),
+            array('isEmpty', array('public')),
         );
     }
 
