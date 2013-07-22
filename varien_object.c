@@ -80,6 +80,7 @@ PHP_METHOD(Varien_Object, __get);
 PHP_METHOD(Varien_Object, __set);
 PHP_METHOD(Varien_Object, isEmpty);
 PHP_METHOD(Varien_Object, _underscore);
+PHP_METHOD(Varien_Object, _camelize);
 
 ZEND_BEGIN_ARG_INFO_EX(vo_getData_arg_info, 0, 0, 0)
 	ZEND_ARG_INFO(0, key)
@@ -184,6 +185,10 @@ ZEND_BEGIN_ARG_INFO_EX(vo__underscore_arg_info, 0, 0, 1)
 	ZEND_ARG_INFO(0, name)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(vo__camelize_arg_info, 0, 0, 1)
+	ZEND_ARG_INFO(0, name)
+ZEND_END_ARG_INFO()
+
 static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, __construct, NULL, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
 	PHP_ME(Varien_Object, _initOldFieldsMap, NULL, ZEND_ACC_PROTECTED)
@@ -219,6 +224,7 @@ static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, __set, vo___set_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, isEmpty, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, _underscore, vo__underscore_arg_info, ZEND_ACC_PROTECTED)
+	PHP_ME(Varien_Object, _camelize, vo__camelize_arg_info, ZEND_ACC_PROTECTED)
 	PHP_FE_END
 };
 
@@ -1604,7 +1610,7 @@ static inline void vo_camelize(char *str, uint str_len, char *prefix, uint prefi
 	uint result_len;
 	zend_bool camelize_next;
 
-	result = emalloc(prefix_len + str_len);
+	result = emalloc(prefix_len + str_len + 1);
 	result_len = 0;
 
 	/* Add prefix to result */
@@ -3091,4 +3097,27 @@ PHP_METHOD(Varien_Object, _underscore)
 
 	vo_underscore(name, name_len, &name_u, &name_u_len TSRMLS_CC);
 	RETURN_STRINGL(name_u, name_u_len, FALSE);
+}
+
+/* protected function _camelize($name) */
+PHP_METHOD(Varien_Object, _camelize)
+{
+	/* ---PHP---
+	return uc_words($name, '');
+	*/
+
+	int num_args = ZEND_NUM_ARGS();
+	char *name, *name_c;
+	uint name_len, name_c_len;
+
+	if (!return_value_used) {
+		return;
+	}
+
+	if (zend_parse_parameters(num_args TSRMLS_CC, "s", &name, &name_len) == FAILURE) {
+		RETURN_FALSE;
+	}
+
+	vo_camelize(name, name_len, NULL, 0, &name_c, &name_c_len TSRMLS_CC);
+	RETURN_STRINGL(name_c, name_c_len, FALSE);
 }
