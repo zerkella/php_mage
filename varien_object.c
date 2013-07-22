@@ -79,6 +79,7 @@ PHP_METHOD(Varien_Object, __call);
 PHP_METHOD(Varien_Object, __get);
 PHP_METHOD(Varien_Object, __set);
 PHP_METHOD(Varien_Object, isEmpty);
+PHP_METHOD(Varien_Object, _underscore);
 
 ZEND_BEGIN_ARG_INFO_EX(vo_getData_arg_info, 0, 0, 0)
 	ZEND_ARG_INFO(0, key)
@@ -179,6 +180,10 @@ ZEND_BEGIN_ARG_INFO_EX(vo___set_arg_info, 0, 0, 2)
 	ZEND_ARG_INFO(0, value)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(vo__underscore_arg_info, 0, 0, 1)
+	ZEND_ARG_INFO(0, name)
+ZEND_END_ARG_INFO()
+
 static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, __construct, NULL, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
 	PHP_ME(Varien_Object, _initOldFieldsMap, NULL, ZEND_ACC_PROTECTED)
@@ -213,6 +218,7 @@ static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, __get, vo___get_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, __set, vo___set_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, isEmpty, NULL, ZEND_ACC_PUBLIC)
+	PHP_ME(Varien_Object, _underscore, vo__underscore_arg_info, ZEND_ACC_PROTECTED)
 	PHP_FE_END
 };
 
@@ -3055,4 +3061,34 @@ PHP_METHOD(Varien_Object, isEmpty)
 
 	vo_extract_data_property(obj_zval, &data);
 	RETURN_BOOL(!i_zend_is_true(*data));
+}
+
+/* protected function _underscore($name) */
+PHP_METHOD(Varien_Object, _underscore)
+{
+	/* ---PHP---
+	if (isset(self::$_underscoreCache[$name])) {
+		return self::$_underscoreCache[$name];
+	}
+	#Varien_Profiler::start('underscore');
+	$result = strtolower(preg_replace('/(.)([A-Z])/', "$1_$2", $name));
+	#Varien_Profiler::stop('underscore');
+	self::$_underscoreCache[$name] = $result;
+	return $result;
+	*/
+
+	int num_args = ZEND_NUM_ARGS();
+	char *name, *name_u;
+	uint name_len, name_u_len;
+
+	if (!return_value_used) {
+		return;
+	}
+
+	if (zend_parse_parameters(num_args TSRMLS_CC, "s", &name, &name_len) == FAILURE) {
+		RETURN_FALSE;
+	}
+
+	vo_underscore(name, name_len, &name_u, &name_u_len TSRMLS_CC);
+	RETURN_STRINGL(name_u, name_u_len, FALSE);
 }
