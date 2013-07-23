@@ -81,6 +81,7 @@ PHP_METHOD(Varien_Object, __set);
 PHP_METHOD(Varien_Object, isEmpty);
 PHP_METHOD(Varien_Object, _underscore);
 PHP_METHOD(Varien_Object, _camelize);
+PHP_METHOD(Varien_Object, serialize);
 
 ZEND_BEGIN_ARG_INFO_EX(vo_getData_arg_info, 0, 0, 0)
 	ZEND_ARG_INFO(0, key)
@@ -189,6 +190,13 @@ ZEND_BEGIN_ARG_INFO_EX(vo__camelize_arg_info, 0, 0, 1)
 	ZEND_ARG_INFO(0, name)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(vo_serialize_arg_info, 0, 0, 4)
+	ZEND_ARG_INFO(0, attributes)
+	ZEND_ARG_INFO(0, valueSeparator)
+	ZEND_ARG_INFO(0, fieldSeparator)
+	ZEND_ARG_INFO(0, quote)
+ZEND_END_ARG_INFO()
+
 static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, __construct, NULL, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
 	PHP_ME(Varien_Object, _initOldFieldsMap, NULL, ZEND_ACC_PROTECTED)
@@ -225,6 +233,7 @@ static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, isEmpty, NULL, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, _underscore, vo__underscore_arg_info, ZEND_ACC_PROTECTED)
 	PHP_ME(Varien_Object, _camelize, vo__camelize_arg_info, ZEND_ACC_PROTECTED)
+	PHP_ME(Varien_Object, serialize, vo_serialize_arg_info, ZEND_ACC_PUBLIC)
 	PHP_FE_END
 };
 
@@ -3120,4 +3129,180 @@ PHP_METHOD(Varien_Object, _camelize)
 
 	vo_camelize(name, name_len, NULL, 0, &name_c, &name_c_len TSRMLS_CC);
 	RETURN_STRINGL(name_c, name_c_len, FALSE);
+}
+
+/* public function serialize($attributes = array(), $valueSeparator='=', $fieldSeparator=' ', $quote='"') */
+PHP_METHOD(Varien_Object, serialize)
+{
+	/* ---PHP---
+	$res  = '';
+	$data = array();
+	if (empty($attributes)) {
+		$attributes = array_keys($this->_data);
+	}
+
+	foreach ($this->_data as $key => $value) {
+		if (in_array($key, $attributes)) {
+			$data[] = $key . $valueSeparator . $quote . $value . $quote;
+		}
+	}
+	$res = implode($fieldSeparator, $data);
+	return $res;
+	*/
+
+	zval *obj_zval = getThis();
+	int num_args = ZEND_NUM_ARGS();
+	zval *attributes = NULL;
+	char *valueSeparator = NULL, *fieldSeparator = NULL, *quote = NULL;
+	uint valueSeparator_len, fieldSeparator_len, quote_len;
+	zval **data;
+	HashTable *ht_data;
+	int num_data_elements;
+	HashTable *ht_attributes, *ht_serialize;
+	int num_attributes, num_serialize;
+	smart_str result = {0};
+	size_t newlen; /* For smart_str_alloc() */
+	zval **attribute;
+	long attr_long;
+	char *attr_str;
+	uint attr_str_len;
+	zend_bool is_dispose_attr_str;
+	int dummy = 1;
+	int current_key_type;
+	ulong current_index;
+	char *current_key;
+	uint current_key_len;
+	zval **value;
+	zval *tmp_zval;
+
+	if (!return_value_used) {
+		return;
+	}
+
+	vo_extract_data_property(obj_zval, &data);
+	if (Z_TYPE_PP(data) != IS_ARRAY) {
+		php_error_docref(NULL TSRMLS_CC, E_ERROR, "_data property must be array");
+	}
+	ht_data = Z_ARRVAL_PP(data);
+
+	num_data_elements = zend_hash_num_elements(ht_data);
+	if (!num_data_elements) {
+		RETURN_EMPTY_STRING();
+	}
+
+	if (zend_parse_parameters(num_args TSRMLS_CC, "|z!sss", &attributes, &valueSeparator, 
+		&valueSeparator_len, &fieldSeparator, &fieldSeparator_len, &quote, &quote_len) == FAILURE) {
+		RETURN_FALSE;
+	}
+
+	/* Check, whether we need to serialize whole data, or just selected attributes */
+	if (!attributes || !i_zend_is_true(attributes)) {
+		ht_serialize = NULL;
+		num_serialize = num_data_elements;
+	} else if (Z_TYPE_P(attributes) == IS_ARRAY) {
+		ht_attributes = Z_ARRVAL_P(attributes);
+		num_attributes = zend_hash_num_elements(ht_attributes);
+		/* Prepare hash table, which will be used to check, whether a data value should be serialized, or not */
+		ALLOC_HASHTABLE(ht_serialize);
+		if (zend_hash_init(ht_serialize, num_attributes, NULL, NULL, FALSE) == FAILURE) {
+			FREE_HASHTABLE(ht_serialize);
+			php_error_docref(NULL TSRMLS_CC, E_ERROR, "Unable to init HashTable for serializing attributes in Varien_Object::serialize()");
+		}
+		
+		for (zend_hash_internal_pointer_reset(ht_attributes); zend_hash_has_more_elements(ht_attributes) == SUCCESS; zend_hash_move_forward(ht_attributes)) {
+			zend_hash_get_current_data(ht_attributes, (void **) &attribute);
+			expand_to_long_or_string(*attribute, &attr_long, &attr_str, &attr_str_len, &is_dispose_attr_str TSRMLS_CC);
+			if (attr_str) {
+				zend_symtable_update(ht_serialize, attr_str, attr_str_len, &dummy, sizeof(int), NULL);
+			} else {
+				zend_hash_index_update(ht_serialize, attr_long, &dummy, sizeof(int), NULL);
+			}
+			if (is_dispose_attr_str) {
+				efree(attr_str);
+			}
+		}
+		num_serialize = num_attributes;
+	} else {
+		php_error_docref(NULL TSRMLS_CC, E_ERROR, "$attributes, passed to Varien_Object::serialize(), must be empty or of array type");
+	}
+
+	/* Prepare data for the iterations */
+	smart_str_alloc(&result, 40 * num_serialize, 0); /* Expect, that each value would require 40 bytes */
+	if (!valueSeparator) {
+		valueSeparator = "=";
+		valueSeparator_len = 1;
+	}
+	if (!fieldSeparator) {
+		fieldSeparator = " ";
+		fieldSeparator_len = 1;
+	}
+	if (!quote) {
+		quote = "\"";
+		quote_len = 1;
+	}
+
+	/* Iterate over _data and serialize all the matching values */
+	for (zend_hash_internal_pointer_reset(ht_data); zend_hash_has_more_elements(ht_data) == SUCCESS; zend_hash_move_forward(ht_data)) {
+		current_key_type = zend_hash_get_current_key_ex(ht_data, &current_key, &current_key_len, &current_index, FALSE, NULL);
+
+		/* Check, that we need to process current key */
+		if (ht_serialize) {
+			if (current_key_type == HASH_KEY_IS_LONG) {
+				if (!zend_hash_index_exists(ht_serialize, current_index)) {
+					continue;
+				}
+			} else {
+				if (!zend_hash_exists(ht_serialize, current_key, current_key_len)) {
+					continue;
+				}
+			}
+		}
+
+		/* Extract the value to serialize */
+		zend_hash_get_current_data(ht_data, (void **) &value);
+
+		/* Add everything to result */
+		if (result.len) {
+			smart_str_appendl(&result, fieldSeparator, fieldSeparator_len);
+		}
+
+		if (current_key_type == HASH_KEY_IS_LONG) {
+			smart_str_append_long(&result, (long) current_index);
+		} else {
+			smart_str_appendl(&result, current_key, current_key_len - 1); /* Hash key len includes final NULL byte */
+		}
+
+		smart_str_appendl(&result, valueSeparator, valueSeparator_len);
+
+		smart_str_appendl(&result, quote, quote_len);
+
+		if (Z_TYPE_PP(value) == IS_STRING) {
+			if (Z_STRLEN_PP(value)) {
+				smart_str_appendl(&result, Z_STRVAL_PP(value), Z_STRLEN_PP(value));
+			}
+		} else if (Z_TYPE_PP(value) == IS_NULL) {
+			/* Do nothing */
+		} else if ((Z_TYPE_PP(value) == IS_BOOL) && !Z_BVAL_PP(value)) {
+			/* Do nothing */
+		} else {
+			ALLOC_INIT_ZVAL(tmp_zval);
+			MAKE_COPY_ZVAL(value, tmp_zval);
+			convert_to_string(tmp_zval);
+			if (Z_STRLEN_P(tmp_zval)) {
+				smart_str_appendl(&result, Z_STRVAL_P(tmp_zval), Z_STRLEN_P(tmp_zval));
+			}
+			zval_ptr_dtor(&tmp_zval);
+		}
+
+		smart_str_appendl(&result, quote, quote_len);
+	}
+
+	/* Free memory */
+	if (ht_serialize) {
+		FREE_HASHTABLE(ht_serialize);
+	}
+
+	/* Result */
+	smart_str_0(&result);
+	RETURN_STRINGL(result.c, result.len, 0);
 }
