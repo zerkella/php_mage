@@ -904,8 +904,7 @@ int getData_fetch_by_key_and_index(zval *data, char *key, uint key_len, char *in
 		zend_call_method_with_1_params(value, Z_OBJCE_PP(value), NULL, "getdata", &index_val_p, param_zval);
 		zval_ptr_dtor(&param_zval);
 		if (index_val_p) {
-			MAKE_COPY_ZVAL(&index_val_p, return_value);
-			zval_ptr_dtor(&index_val_p);
+			COPY_PZVAL_TO_ZVAL(*return_value, index_val_p);
 		} else {
 			RETVAL_FALSE;
 		}
@@ -1267,8 +1266,7 @@ PHP_METHOD(Varien_Object, getId)
 	zval_ptr_dtor(&id_field_name);
 
 	if (id) {
-		MAKE_COPY_ZVAL(&id, return_value);
-		zval_ptr_dtor(&id);
+		COPY_PZVAL_TO_ZVAL(*return_value, id);
 	} else {
 		RETURN_FALSE;
 	}
@@ -1766,8 +1764,7 @@ PHP_METHOD(Varien_Object, getDataUsingMethod)
 	/* Return data */
 	if (retval_ptr_ptr) {
 		if (*retval_ptr_ptr) {
-			MAKE_COPY_ZVAL(retval_ptr_ptr, return_value);
-			zval_ptr_dtor(retval_ptr_ptr);
+			COPY_PZVAL_TO_ZVAL(*return_value, *retval_ptr_ptr);
 		} else {
 			/* Failure in the called method */
 			RETVAL_FALSE;
@@ -2022,8 +2019,7 @@ PHP_METHOD(Varien_Object, toArray)
 	}
 
 	if (result) {
-		MAKE_COPY_ZVAL(&result, return_value);
-		zval_ptr_dtor(&result);
+		COPY_PZVAL_TO_ZVAL(*return_value, result);
 	} else {
 		RETVAL_FALSE;
 	}
