@@ -138,6 +138,12 @@ class Varien_Object_methods_setDataTest extends PHPUnit_Framework_TestCase
                 'value',
                 array(111 => 'value', 333 => 'value')
             ),
+            'sync with string integer key' => array(
+                'Zerkella_PhpMage_Varien_Object_Descendant_AddFullNames',
+                '111',
+                'value',
+                array(111 => 'value', 333 => 'value')
+            ),
             'sync with string key' => array(
                 'Zerkella_PhpMage_Varien_Object_Descendant_AddFullNames',
                 'new_property2',

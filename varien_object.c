@@ -1083,7 +1083,7 @@ PHP_METHOD(Varien_Object, setData)
 
 		/* Find the keys, to which we will sync values from _data. */
 		if (key_str) {
-			found_result = zend_hash_find(ht_syncFieldsMap, key_str, key_str_len + 1, (void **) &sync_to_key);
+			found_result = zend_symtable_find(ht_syncFieldsMap, key_str, key_str_len + 1, (void **) &sync_to_key);
 		} else {
 			found_result = zend_hash_index_find(ht_syncFieldsMap, key_long, (void **) &sync_to_key);
 		}
