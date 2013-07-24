@@ -985,14 +985,14 @@ static inline void expand_to_long_or_string(zval *z, long *val_long, char **val_
 		*is_dispose_str = FALSE;
 	} else if (Z_TYPE_P(z) == IS_STRING) {
 		*val_str = Z_STRVAL_P(z);
-		*val_str_len = Z_STRLEN_P(z) + 1;
+		*val_str_len = Z_STRLEN_P(z);
 		*is_dispose_str = FALSE;
 	} else {
 		ALLOC_ZVAL(tmp);
 		MAKE_COPY_ZVAL(&z, tmp);
 		convert_to_string(tmp);
 		*val_str = Z_STRVAL_P(tmp);
-		*val_str_len = Z_STRLEN_P(tmp) + 1;
+		*val_str_len = Z_STRLEN_P(tmp);
 		FREE_ZVAL(tmp);
 		*is_dispose_str = TRUE;
 	}
@@ -1069,7 +1069,7 @@ PHP_METHOD(Varien_Object, setData)
 
 		expand_to_long_or_string(key_zval, &key_long, &key_str, &key_str_len, &is_dispose_key_str TSRMLS_CC);
 		if (key_str) {
-			zend_symtable_update(ht_data, key_str, key_str_len, &value_zval, sizeof(zval *), NULL);
+			zend_symtable_update(ht_data, key_str, key_str_len + 1, &value_zval, sizeof(zval *), NULL);
 		} else {
 			zend_hash_index_update(ht_data, key_long, &value_zval, sizeof(zval *), NULL);
 		}
@@ -1083,7 +1083,7 @@ PHP_METHOD(Varien_Object, setData)
 
 		/* Find the keys, to which we will sync values from _data. */
 		if (key_str) {
-			found_result = zend_hash_find(ht_syncFieldsMap, key_str, key_str_len, (void **) &sync_to_key);
+			found_result = zend_hash_find(ht_syncFieldsMap, key_str, key_str_len + 1, (void **) &sync_to_key);
 		} else {
 			found_result = zend_hash_index_find(ht_syncFieldsMap, key_long, (void **) &sync_to_key);
 		}
@@ -1094,7 +1094,7 @@ PHP_METHOD(Varien_Object, setData)
 
 			expand_to_long_or_string(*sync_to_key, &sync_long, &sync_str, &sync_str_len, &is_dispose_sync_str TSRMLS_CC);
 			if (sync_str) {
-				zend_symtable_update(ht_data, sync_str, sync_str_len, &value_zval, sizeof(zval *), NULL);
+				zend_symtable_update(ht_data, sync_str, sync_str_len + 1, &value_zval, sizeof(zval *), NULL);
 			} else {
 				zend_hash_index_update(ht_data, sync_long, &value_zval, sizeof(zval *), NULL);
 			}
@@ -1437,7 +1437,7 @@ PHP_METHOD(Varien_Object, unsetData)
 
 		/* Unset appropriate data[$key] */
 		if (key_str) {
-			zend_symtable_del(ht_data, key_str, key_str_len);
+			zend_symtable_del(ht_data, key_str, key_str_len + 1);
 		} else {
 			zend_hash_index_del(ht_data, key_long);
 		}
@@ -1450,7 +1450,7 @@ PHP_METHOD(Varien_Object, unsetData)
 		ht_sync = Z_ARRVAL_P(syncFieldsMap);
 
 		if (key_str) {
-			sync_found_result = zend_symtable_find(ht_sync, key_str, key_str_len, (void **) &fullFieldName);
+			sync_found_result = zend_symtable_find(ht_sync, key_str, key_str_len + 1, (void **) &fullFieldName);
 		} else {
 			sync_found_result = zend_hash_index_find(ht_sync, key_long, (void **) &fullFieldName);
 		}
@@ -1458,7 +1458,7 @@ PHP_METHOD(Varien_Object, unsetData)
 		if (sync_found_result == SUCCESS) {
 			expand_to_long_or_string(*fullFieldName, &field_long, &field_str, &field_str_len, &is_dispose_field_str TSRMLS_CC);
 			if (field_str) {
-				zend_symtable_del(ht_data, field_str, field_str_len);
+				zend_symtable_del(ht_data, field_str, field_str_len + 1);
 			} else {
 				zend_hash_index_del(ht_data, field_long);
 			}
@@ -1551,7 +1551,7 @@ PHP_METHOD(Varien_Object, unsetOldData)
 		expand_to_long_or_string(key, &key_long, &key_str, &key_str_len, &is_dispose_key_str TSRMLS_CC);
 
 		if (key_str) {
-			zend_symtable_del(ht_data, key_str, key_str_len);
+			zend_symtable_del(ht_data, key_str, key_str_len + 1);
 		} else {
 			zend_hash_index_del(ht_data, key_long);
 		}
@@ -1953,7 +1953,7 @@ PHP_METHOD(Varien_Object, __toArray)
 		expand_to_long_or_string(*attr_name, &attr_long, &attr_str, &attr_str_len, &is_dispose_attr_str TSRMLS_CC);
 
 		if (attr_str) {
-			found_result = zend_symtable_find(ht_data, attr_str, attr_str_len, (void **) &found_zval);
+			found_result = zend_symtable_find(ht_data, attr_str, attr_str_len + 1, (void **) &found_zval);
 		} else {
 			found_result = zend_hash_index_find(ht_data, attr_long, (void **) &found_zval);
 		}
@@ -1973,7 +1973,7 @@ PHP_METHOD(Varien_Object, __toArray)
 
 		/* Copy attribute to resulting array */
 		if (attr_str) {
-			zend_symtable_update(ht_arrRes, attr_str, attr_str_len, &copied_zval, sizeof(zval *), NULL);
+			zend_symtable_update(ht_arrRes, attr_str, attr_str_len + 1, &copied_zval, sizeof(zval *), NULL);
 		} else {
 			zend_hash_index_update(ht_arrRes, attr_long, &copied_zval, sizeof(zval *), NULL);
 		}
@@ -2083,7 +2083,7 @@ PHP_METHOD(Varien_Object, _prepareArray)
 		expand_to_long_or_string(*element, &element_long, &element_str, &element_str_len, &is_dispose_element_str TSRMLS_CC);
 
 		if (element_str) {
-			element_exists = zend_symtable_exists(ht_arr, element_str, element_str_len);
+			element_exists = zend_symtable_exists(ht_arr, element_str, element_str_len + 1);
 		} else {
 			element_exists = zend_hash_index_exists(ht_arr, element_long);
 		}
@@ -2096,7 +2096,7 @@ PHP_METHOD(Varien_Object, _prepareArray)
 				ZVAL_NULL(null_zval);
 			}
 			if (element_str) {
-				zend_symtable_update(ht_arr, element_str, element_str_len, &null_zval, sizeof(zval *), NULL);
+				zend_symtable_update(ht_arr, element_str, element_str_len + 1, &null_zval, sizeof(zval *), NULL);
 			} else {
 				zend_hash_index_update(ht_arr, element_long, &null_zval, sizeof(zval *), NULL);
 			}
@@ -3213,7 +3213,7 @@ PHP_METHOD(Varien_Object, serialize)
 			zend_hash_get_current_data(ht_attributes, (void **) &attribute);
 			expand_to_long_or_string(*attribute, &attr_long, &attr_str, &attr_str_len, &is_dispose_attr_str TSRMLS_CC);
 			if (attr_str) {
-				zend_symtable_update(ht_serialize, attr_str, attr_str_len, &dummy, sizeof(int), NULL);
+				zend_symtable_update(ht_serialize, attr_str, attr_str_len + 1, &dummy, sizeof(int), NULL);
 			} else {
 				zend_hash_index_update(ht_serialize, attr_long, &dummy, sizeof(int), NULL);
 			}
