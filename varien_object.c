@@ -2694,11 +2694,12 @@ static void vo_toString_by_format(zval *obj_zval, zend_class_entry *obj_ce, zval
 	/* Edge case, when the length is so small, that there are definitely no placeholders. Minimal placeholder has 5 symbols, e.g. "{{a}}" */
 	if (format_len < 5) {
 		if (tmp_format) {
-			RETURN_ZVAL(tmp_format, FALSE, FALSE);
+			RETVAL_ZVAL(tmp_format, FALSE, FALSE);
 			FREE_ZVAL(tmp_format);
 		} else {
-			RETURN_ZVAL(format_zval, TRUE, FALSE);
+			MAKE_COPY_ZVAL(&format_zval, return_value);
 		}
+		return;
 	}
 
 	/* Allocate memory for result */
