@@ -1,0 +1,1 @@
+http://engineering.yakaz.com/writing-a-cpp-extension-for-php-5.html - work for gdb, pack for debian, compile as c++
