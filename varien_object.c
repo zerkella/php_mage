@@ -240,7 +240,8 @@ static const zend_function_entry vo_methods[] = {
 /*---Used variables---*/
 static zend_class_entry *vo_class;
 static int vo_def_props_num;
-static vo_property_info_t *vo_data_property_info;
+static vo_property_info_t *vo_data_property_info, *vo_isDeleted_property_info, *vo_idFieldName_property_info, 
+	*vo_syncFieldsMap_property_info, *vo_oldFieldsMap_property_info, *vo_hasDataChanges_property_info;
 
 /* Forward declarations */
 static zend_object_value vo_create_handler(zend_class_entry *class_type TSRMLS_DC);
@@ -251,10 +252,13 @@ static int vo_callback_make_syncFieldsMap(zval **zv TSRMLS_DC, int num_args, va_
 static void vo_convert_htmlentities(zval * value, char **result_str, uint *result_len);
 
 /* Pseudo functions */
-#define vo_extract_data_property(obj_zval_p, data_zval_ppp) \
+#define VO_EXTRACT_PROPERTY(property_name, obj_zval_p, property_zval_ppp) \
 { \
-	if (zend_hash_quick_find(Z_OBJPROP_P(obj_zval_p), vo_data_property_info->name, vo_data_property_info->name_len, vo_data_property_info->hash, (void**)data_zval_ppp) == FAILURE) { \
-		php_error_docref(NULL TSRMLS_CC, E_ERROR, "Strange error - couldn't get protected _data property"); \
+	if (zend_hash_quick_find(Z_OBJPROP_P(obj_zval_p), vo##property_name##_property_info->name, vo##property_name##_property_info->name_len, vo##property_name##_property_info->hash, (void**)property_zval_ppp) == FAILURE) { \
+	    /* Access to the property was changed, it cannot be found using cached hash. Fall back to standard mechanism of property fetching. */ \
+		zval *tmp_extracted_##property_name; \
+		tmp_extracted_##property_name = zend_read_property(Z_OBJCE_P(obj_zval_p), obj_zval_p, #property_name, sizeof(#property_name) - 1, FALSE TSRMLS_CC); \
+		*property_zval_ppp = &tmp_extracted_##property_name; \
 	} \
 }
 
@@ -300,12 +304,17 @@ int mage_varien_object_minit(TSRMLS_D)
 				php_error_docref(NULL TSRMLS_CC, E_ERROR, "Unknown property declaration type %s:%d", prop_declaration->name, prop_declaration->type);
 				break;
 		}
-		prop_declaration->internal_info = get_protected_property_info(prop_declaration->name, prop_declaration->name_len, 1); 
+		prop_declaration->internal_info = get_protected_property_info(prop_declaration->name, prop_declaration->name_len, TRUE); 
 	};
 
 	/* Optimization - cache different values */
 	vo_def_props_num = zend_hash_num_elements(&vo_class->default_properties);
 	vo_data_property_info = get_protected_property_info("_data", sizeof("_data") - 1, TRUE);
+	vo_isDeleted_property_info = get_protected_property_info("_isDeleted", sizeof("_isDeleted") - 1, TRUE);
+	vo_idFieldName_property_info = get_protected_property_info("_idFieldName", sizeof("_idFieldName") - 1, TRUE);
+	vo_syncFieldsMap_property_info = get_protected_property_info("_syncFieldsMap", sizeof("_syncFieldsMap") - 1, TRUE);
+	vo_oldFieldsMap_property_info = get_protected_property_info("_oldFieldsMap", sizeof("_oldFieldsMap") - 1, TRUE);
+	vo_hasDataChanges_property_info = get_protected_property_info("_hasDataChanges", sizeof("_hasDataChanges") - 1, TRUE);;
 
 	return SUCCESS;
 }
@@ -414,8 +423,7 @@ PHP_METHOD(Varien_Object, __construct)
 	zval *param = NULL;
 	int num_args = ZEND_NUM_ARGS();
 	zend_class_entry *obj_ce = Z_OBJCE_P(obj_zval);
-	zval *oldFieldsMap, *tmp_zval;
-	zend_bool isOldFieldsMap;
+	zval **oldFieldsMap;
 
 	/*
 	---PHP---
@@ -429,14 +437,8 @@ PHP_METHOD(Varien_Object, __construct)
 		$this->_prepareSyncFieldsMap();
 	}
 	*/
-	oldFieldsMap = zend_read_property(obj_ce, obj_zval, "_oldFieldsMap", sizeof("_oldFieldsMap") - 1, FALSE TSRMLS_CC);
-	ALLOC_ZVAL(tmp_zval);
-	MAKE_COPY_ZVAL(&oldFieldsMap, tmp_zval);
-	convert_to_boolean(tmp_zval);
-	isOldFieldsMap = Z_BVAL_P(tmp_zval);
-	zval_ptr_dtor(&tmp_zval);
-
-	if (isOldFieldsMap) {
+	VO_EXTRACT_PROPERTY(_oldFieldsMap, obj_zval, &oldFieldsMap);
+	if (i_zend_is_true(*oldFieldsMap)) {
 		zend_call_method_with_0_params(&obj_zval, obj_ce, NULL, "_preparesyncfieldsmap", NULL);
 	}
 
@@ -479,6 +481,7 @@ PHP_METHOD(Varien_Object, _prepareSyncFieldsMap)
 {
 	zval *obj_zval = getThis();
 	zend_class_entry *obj_ce = Z_OBJCE_P(obj_zval);
+	zval **syncFieldsMap_pp, **oldFieldsMap_pp;
 	zval *syncFieldsMap, *oldFieldsMap;
 	int num_sync_elements;
 	HashTable *ht_for_property;
@@ -489,7 +492,8 @@ PHP_METHOD(Varien_Object, _prepareSyncFieldsMap)
 	$new2Old = array_flip($this->_oldFieldsMap);
 	$this->_syncFieldsMap = array_merge($old2New, $new2Old);
 	*/
-	oldFieldsMap = zend_read_property(obj_ce, obj_zval, "_oldFieldsMap", sizeof("_oldFieldsMap") - 1, FALSE TSRMLS_CC);
+	VO_EXTRACT_PROPERTY(_oldFieldsMap, obj_zval, &oldFieldsMap_pp);
+	oldFieldsMap = *oldFieldsMap_pp;
 	if (Z_TYPE_P(oldFieldsMap) != IS_ARRAY) {
 		php_error_docref(NULL TSRMLS_CC, E_ERROR, "_oldFieldsMap is not an array, while processing it through _prepareSyncFieldsMap() method");
 	}
@@ -502,7 +506,8 @@ PHP_METHOD(Varien_Object, _prepareSyncFieldsMap)
 		php_error_docref(NULL TSRMLS_CC, E_ERROR, "Unable to init HashTable for _syncFieldsMap");
 	}
 
-	syncFieldsMap = zend_read_property(obj_ce, obj_zval, "_syncFieldsMap", sizeof("_syncFieldsMap") - 1, FALSE TSRMLS_CC);
+	VO_EXTRACT_PROPERTY(_syncFieldsMap, obj_zval, &syncFieldsMap_pp);
+	syncFieldsMap = *syncFieldsMap_pp;
 	if (!Z_ISREF_P(syncFieldsMap) && (Z_REFCOUNT_P(syncFieldsMap) > 1)) {
 		/* Create new zval and set it to object */
 		ALLOC_INIT_ZVAL(syncFieldsMap);
@@ -576,9 +581,8 @@ PHP_METHOD(Varien_Object, _addFullNames)
 	Go through keys of _data, write each synced value under synced key
 	*/
 	zval *obj_zval = getThis();
-	zend_class_entry *obj_ce = Z_OBJCE_P(obj_zval);
 	zval **data;
-	zval *syncFieldsMap;
+	zval **syncFieldsMap;
 	int num_sync_elements;
 	int num_data_elements;
 	int total_to_sync, i;
@@ -601,7 +605,7 @@ PHP_METHOD(Varien_Object, _addFullNames)
 	key_info_t *key_info; 
 
 	/* Extract and check properties */
-	vo_extract_data_property(obj_zval, &data);
+	VO_EXTRACT_PROPERTY(_data, obj_zval, &data);
 	if (Z_TYPE_PP(data) != IS_ARRAY) {
 		php_error_docref(NULL TSRMLS_CC, E_ERROR, "_data property must be array");
 	}
@@ -611,12 +615,13 @@ PHP_METHOD(Varien_Object, _addFullNames)
 		return;
 	}
 
-	syncFieldsMap = zend_read_property(obj_ce, obj_zval, "_syncFieldsMap", sizeof("_syncFieldsMap") - 1, FALSE TSRMLS_CC);
-	if (!syncFieldsMap || (Z_TYPE_P(syncFieldsMap) != IS_ARRAY)) {
+	VO_EXTRACT_PROPERTY(_syncFieldsMap, obj_zval, &syncFieldsMap);
+	if (!syncFieldsMap || !(*syncFieldsMap) || (Z_TYPE_PP(syncFieldsMap) != IS_ARRAY)) {
 		php_error_docref(NULL TSRMLS_CC, E_ERROR, "_syncFieldsMap property must be array");
 	}
 
-	num_sync_elements = zend_hash_num_elements(Z_ARRVAL_P(syncFieldsMap));
+	ht_syncFieldsMap = Z_ARRVAL_PP(syncFieldsMap);
+	num_sync_elements = zend_hash_num_elements(ht_syncFieldsMap);
 	if (!num_sync_elements) {
 		return;
 	}
@@ -624,7 +629,6 @@ PHP_METHOD(Varien_Object, _addFullNames)
 	/* Iterate over syncFieldsMap and find the keys, to which we will sync values from _data. */
 	SEPARATE_ZVAL_IF_NOT_REF(data);
 	ht_data = Z_ARRVAL_PP(data);
-	ht_syncFieldsMap = Z_ARRVAL_P(syncFieldsMap);
 	copy_to_keys = emalloc(num_sync_elements * sizeof(key_info_t)); /* Allocate maximal possible array to hold things we will sync */
 	total_to_sync = 0;
 	for (zend_hash_internal_pointer_reset(ht_syncFieldsMap); zend_hash_has_more_elements(ht_syncFieldsMap) == SUCCESS; zend_hash_move_forward(ht_syncFieldsMap)) {
@@ -948,7 +952,7 @@ PHP_METHOD(Varien_Object, getData)
 	}
 
 	/* Process different cases what to return */
-	vo_extract_data_property(object, &data);
+	VO_EXTRACT_PROPERTY(_data, object, &data);
 
 	/* Whole data is requested */
 	if (is_return_whole_data) {
@@ -1029,7 +1033,7 @@ PHP_METHOD(Varien_Object, setData)
 	zval **data;
 	HashTable *ht_data;
 
-	zval *syncFieldsMap;
+	zval **syncFieldsMap;
 	HashTable *ht_syncFieldsMap;
 	zval **sync_to_key;
 	int found_result;
@@ -1052,7 +1056,7 @@ PHP_METHOD(Varien_Object, setData)
 		zend_call_method_with_0_params(&obj_zval, obj_ce, NULL, "_addfullnames", NULL);
 	} else {
 		/* Extract and check property */
-		vo_extract_data_property(obj_zval, &data);
+		VO_EXTRACT_PROPERTY(_data, obj_zval, &data);
 		if (Z_TYPE_PP(data) != IS_ARRAY) {
 			php_error_docref(NULL TSRMLS_CC, E_ERROR, "_data property must be array");
 		}
@@ -1074,11 +1078,11 @@ PHP_METHOD(Varien_Object, setData)
 		}
 
 		/* Sync value according to sync fields map */
-		syncFieldsMap = zend_read_property(obj_ce, obj_zval, "_syncFieldsMap", sizeof("_syncFieldsMap") - 1, FALSE TSRMLS_CC);
-		if (!syncFieldsMap || (Z_TYPE_P(syncFieldsMap) != IS_ARRAY)) {
+		VO_EXTRACT_PROPERTY(_syncFieldsMap, obj_zval, &syncFieldsMap);
+		if (!syncFieldsMap || !(*syncFieldsMap) || (Z_TYPE_PP(syncFieldsMap) != IS_ARRAY)) {
 			php_error_docref(NULL TSRMLS_CC, E_ERROR, "_syncFieldsMap property must be array");
 		}
-		ht_syncFieldsMap = Z_ARRVAL_P(syncFieldsMap);
+		ht_syncFieldsMap = Z_ARRVAL_PP(syncFieldsMap);
 
 		/* Find the keys, to which we will sync values from _data. */
 		if (key_str) {
@@ -1123,12 +1127,11 @@ PHP_METHOD(Varien_Object, hasDataChanges)
 	*/
 
 	zval *obj_zval = getThis();
-	zend_class_entry *obj_ce = Z_OBJCE_P(obj_zval);
-	zval *has_data_changes;
+	zval **has_data_changes;
 
 	if (return_value_used) {
-		has_data_changes = zend_read_property(obj_ce, obj_zval, "_hasDataChanges", sizeof("_hasDataChanges") - 1, FALSE TSRMLS_CC);
-		MAKE_COPY_ZVAL(&has_data_changes, return_value);
+		VO_EXTRACT_PROPERTY(_hasDataChanges, obj_zval, &has_data_changes);
+		MAKE_COPY_ZVAL(has_data_changes, return_value);
 	}
 }
 
@@ -1148,7 +1151,7 @@ PHP_METHOD(Varien_Object, isDeleted)
 	int num_args = ZEND_NUM_ARGS();
 	int parse_result;
 	zval *isDeleted;
-	zval *old_isDeleted;
+	zval **old_isDeleted;
 
 	if (num_args) {
 		parse_result = zend_parse_parameters(num_args TSRMLS_CC, "z!", &isDeleted);
@@ -1161,8 +1164,8 @@ PHP_METHOD(Varien_Object, isDeleted)
 
 	/* Fetch current value */
 	if (return_value_used) {
-		old_isDeleted = zend_read_property(obj_ce, obj_zval, "_isDeleted", sizeof("_isDeleted") - 1, FALSE TSRMLS_CC);
-		MAKE_COPY_ZVAL(&old_isDeleted, return_value);
+		VO_EXTRACT_PROPERTY(_isDeleted, obj_zval, &old_isDeleted);
+		MAKE_COPY_ZVAL(old_isDeleted, return_value);
 	}
 
 	/* Set new value, if requested */
@@ -1210,11 +1213,11 @@ PHP_METHOD(Varien_Object, getIdFieldName)
 
 	zval *obj_zval = getThis();
 	zend_class_entry *obj_ce = Z_OBJCE_P(obj_zval);
-	zval *idFieldName;
+	zval **idFieldName;
 
 	if (return_value_used) {
-		idFieldName = zend_read_property(obj_ce, obj_zval, "_idFieldName", sizeof("_idFieldName") - 1, FALSE TSRMLS_CC);
-		MAKE_COPY_ZVAL(&idFieldName, return_value);
+		VO_EXTRACT_PROPERTY(_idFieldName, obj_zval, &idFieldName);
+		MAKE_COPY_ZVAL(idFieldName, return_value);
 	}
 }
 
@@ -1405,7 +1408,7 @@ PHP_METHOD(Varien_Object, unsetData)
 	zend_bool is_dispose_key_str, is_dispose_field_str;
 	zval **data;
 	zval **fullFieldName;
-	zval *syncFieldsMap;
+	zval **syncFieldsMap;
 	int sync_found_result;
 
 	/* Raise _hasDataChanges */
@@ -1421,7 +1424,7 @@ PHP_METHOD(Varien_Object, unsetData)
 	}
 
 	/* Fetch data property array */
-	vo_extract_data_property(obj_zval, &data);
+	VO_EXTRACT_PROPERTY(_data, obj_zval, &data);
 	if (Z_TYPE_PP(data) != IS_ARRAY) {
 		php_error_docref(NULL TSRMLS_CC, E_ERROR, "_data property must be array");
 	}
@@ -1441,11 +1444,11 @@ PHP_METHOD(Varien_Object, unsetData)
 		}
 
 		/* Unset the value from synced key, if any */
-		syncFieldsMap = zend_read_property(obj_ce, obj_zval, "_syncFieldsMap", sizeof("_syncFieldsMap") - 1, FALSE TSRMLS_CC);
-		if (Z_TYPE_P(syncFieldsMap) != IS_ARRAY) {
+		VO_EXTRACT_PROPERTY(_syncFieldsMap, obj_zval, &syncFieldsMap);
+		if (!syncFieldsMap || !(*syncFieldsMap) || (Z_TYPE_PP(syncFieldsMap) != IS_ARRAY)) {
 			php_error_docref(NULL TSRMLS_CC, E_ERROR, "_syncFieldsMap property must be array");
 		}
-		ht_sync = Z_ARRVAL_P(syncFieldsMap);
+		ht_sync = Z_ARRVAL_PP(syncFieldsMap);
 
 		if (key_str) {
 			sync_found_result = zend_symtable_find(ht_sync, key_str, key_str_len + 1, (void **) &fullFieldName);
@@ -1503,7 +1506,7 @@ PHP_METHOD(Varien_Object, unsetOldData)
 	uint key_str_len;
 	zend_bool is_dispose_key_str;
 	zval **data;
-	zval *oldFieldsMap;
+	zval **oldFieldsMap;
 	HashTable *ht_oldFieldsMap;
 	int current_key_type;
 	ulong current_index;
@@ -1520,7 +1523,7 @@ PHP_METHOD(Varien_Object, unsetOldData)
 	}
 
 	/* Fetch data property array */
-	vo_extract_data_property(obj_zval, &data);
+	VO_EXTRACT_PROPERTY(_data, obj_zval, &data);
 	if (Z_TYPE_PP(data) != IS_ARRAY) {
 		php_error_docref(NULL TSRMLS_CC, E_ERROR, "_data property must be array");
 	}
@@ -1528,11 +1531,11 @@ PHP_METHOD(Varien_Object, unsetOldData)
 	ht_data = Z_ARRVAL_PP(data);
 
 	if ((key == NULL) && (zend_hash_num_elements(ht_data))) {
-		oldFieldsMap = zend_read_property(obj_ce, obj_zval, "_oldFieldsMap", sizeof("_oldFieldsMap") - 1, FALSE TSRMLS_CC);
-		if (Z_TYPE_P(oldFieldsMap) != IS_ARRAY) {
+		VO_EXTRACT_PROPERTY(_oldFieldsMap, obj_zval, &oldFieldsMap);
+		if (!oldFieldsMap || !(*oldFieldsMap) || (Z_TYPE_PP(oldFieldsMap) != IS_ARRAY)) {
 			php_error_docref(NULL TSRMLS_CC, E_ERROR, "_oldFieldsMap property must be array");
 		}
-		ht_oldFieldsMap = Z_ARRVAL_P(oldFieldsMap);
+		ht_oldFieldsMap = Z_ARRVAL_PP(oldFieldsMap);
 
 		if (zend_hash_num_elements(ht_oldFieldsMap)) {
 			for (zend_hash_internal_pointer_reset(ht_oldFieldsMap); zend_hash_has_more_elements(ht_oldFieldsMap) == SUCCESS; zend_hash_move_forward(ht_oldFieldsMap)) {
@@ -1595,7 +1598,7 @@ PHP_METHOD(Varien_Object, _getData)
 	}
 
 	/* Extract and check property */
-	vo_extract_data_property(obj_zval, &data);
+	VO_EXTRACT_PROPERTY(_data, obj_zval, &data);
 	if (Z_TYPE_PP(data) != IS_ARRAY) {
 		php_error_docref(NULL TSRMLS_CC, E_ERROR, "_data property must be array");
 	}
@@ -1804,7 +1807,7 @@ PHP_METHOD(Varien_Object, getDataSetDefault)
 	}
 
 	/* Extract and check _data property */
-	vo_extract_data_property(obj_zval, &data);
+	VO_EXTRACT_PROPERTY(_data, obj_zval, &data);
 	if (Z_TYPE_PP(data) != IS_ARRAY) {
 		php_error_docref(NULL TSRMLS_CC, E_ERROR, "_data property must be array");
 	}
@@ -1853,7 +1856,7 @@ PHP_METHOD(Varien_Object, hasData)
 	}
 
 	/* Extract and check _data property */
-	vo_extract_data_property(obj_zval, &data);
+	VO_EXTRACT_PROPERTY(_data, obj_zval, &data);
 	if (Z_TYPE_PP(data) != IS_ARRAY) {
 		php_error_docref(NULL TSRMLS_CC, E_ERROR, "_data property must be array");
 	}
@@ -1917,7 +1920,7 @@ PHP_METHOD(Varien_Object, __toArray)
 	}
 
 	/* Extract and check _data property */
-	vo_extract_data_property(obj_zval, &data);
+	VO_EXTRACT_PROPERTY(_data, obj_zval, &data);
 	if (Z_TYPE_PP(data) != IS_ARRAY) {
 		php_error_docref(NULL TSRMLS_CC, E_ERROR, "_data property must be array");
 	}
@@ -2957,7 +2960,7 @@ PHP_METHOD(Varien_Object, __call)
 			/* ---has--- */
 			if (return_value_used) {
 				vo_underscore(method + 3, method_len - 3, &key, &key_len TSRMLS_CC);
-				vo_extract_data_property(obj_zval, &data_pzval);
+				VO_EXTRACT_PROPERTY(_data, obj_zval, &data_pzval);
 				if (Z_TYPE_PP(data_pzval) != IS_ARRAY) {
 					php_error_docref(NULL TSRMLS_CC, E_ERROR, "_data property must be array");
 				}
@@ -3071,7 +3074,7 @@ PHP_METHOD(Varien_Object, isEmpty)
 		return;
 	}
 
-	vo_extract_data_property(obj_zval, &data);
+	VO_EXTRACT_PROPERTY(_data, obj_zval, &data);
 	RETURN_BOOL(!i_zend_is_true(*data));
 }
 
@@ -3176,7 +3179,7 @@ PHP_METHOD(Varien_Object, serialize)
 		return;
 	}
 
-	vo_extract_data_property(obj_zval, &data);
+	VO_EXTRACT_PROPERTY(_data, obj_zval, &data);
 	if (Z_TYPE_PP(data) != IS_ARRAY) {
 		php_error_docref(NULL TSRMLS_CC, E_ERROR, "_data property must be array");
 	}
