@@ -1,1 +1,0 @@
-copy ..\Debug\php_mage.dll "c:\program files (x86)\php\ext\php_mage.dll"
