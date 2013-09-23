@@ -21,7 +21,7 @@
 			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
 			IntermediateDirectory="$(ConfigurationName)"
 			ConfigurationType="2"
-			CharacterSet="1"
+			CharacterSet="2"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
@@ -42,7 +42,7 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories="&quot;E:\php-5.3.14-src&quot;;&quot;E:\php-5.3.14-src\main&quot;;&quot;E:\php-5.3.14-src\TSRM&quot;;&quot;E:\php-5.3.14-src\win32&quot;;&quot;E:\php-5.3.14-src\Zend&quot;"
-				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;_USRDLL;MAGE_EXPORTS;PHP_WIN32;ZEND_WIN32;ZTS=1;ZEND_DEBUG=0"
+				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;_USRDLL;MAGE_EXPORTS;PHP_WIN32;ZEND_WIN32;ZTS=1;ZEND_DEBUG=0;_USE_32BIT_TIME_T=1"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"

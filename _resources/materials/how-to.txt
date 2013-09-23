@@ -1,55 +1,67 @@
-1. Install Apache compiled with VC9 (Visual Studion 2008). It can be got at Apache Lo
+1. Install Apache compiled with VC9 (Visual Studion 2008). It can be got at Apache Lounge
 http://www.apachelounge.com/
 
 
 2. Install PHP with thread safe VC9
 
 
-3. Download Windows Binaries for your version of PHP
+3. Download source code for your version of PHP and unpack it somewhere on your drive
+http://windows.php.net/download/
+
+4. Download php-debug-pack for your version of PHP in order to have ability to debug into PHP code, when testing your extension. Unpack files somewhere on your drive.
 http://windows.php.net/download/
 
 
-4. Start Project in VC
+5. Start Project in VC
 Open up Visual Studio C++ express 2008 and create a new project. This is accomplished via "File -> New Project" or "New Project" on the start page.
-Select Win32 Project and enter a name.
-Click the "next" button and it will bring you to a new form with the title of "Win32 Application Wizard - Introduction Name of project. 
-Now make sure under the heading "Application Type" that the DLL is selected and Empty Project under "Additional Options" is also selected.
+Select "Win32 Project" and enter a name.
+Click the "next" button and it will bring you to a new form with the title of "Win32 Application Wizard - <Name of project>". Click Next. 
+Now make sure under the heading "Application Type" that the DLL is selected and "Empty Project" under "Additional Options" is also selected.
 
 
-5. Create Simple C++ file
+6. Create simple C++ file
 Either click on Source Files under your project and go Right Click -> Add -> New Item. Select "C++ file" and enter a name. ALWAYS USE .c AS EXTENSION FOR THE FILE NAME. 
 Otherwise there will be issues with compilation - non-consistent declaration of getwchar/putwchar, inability to have several files which use "php.h", etc.
 
-6. Additional Directories
-We need to add some "Additional Directories" so that our IDE Visual Studio C++ can include and use methods / functions inside our Php extension. 
-To navigate to Properties, either Right click <Name of your project> -> Properties , or Project -> Properties.
+7. Additional Directories
+We need to add PHP source code as "Additional Directories", so that our IDE Visual Studio C++ can include and use PHP declarations and functions inside our extension. 
+To navigate to Properties, either right click <Name of your project> -> Properties , or Project -> Properties.
 
-Now navigate to C/C++ -> General -> Additional Include Directories. Now select the arrow to the right. It's a dropdown box -> Edit Items. Now a screen titled Additional Include Directories will come up. 
-To the far top right, there is a buttons panel, to the button to the left The file button, Click it, now add in the following directories from PHP source, one by one Click the file icon for every directory given
+Now navigate to C/C++ -> General -> Additional Include Directories. Select and edit them - a new window "Additional Edit Directories" will come up.
+To the far top right, there is a button panel. Click the folder button there and add the following directories from PHP source, one by one (click the file icon for every directory given):
 
 <php_source>\
+<php_source>\ext
 <php_source>\main
 <php_source>\TSRM
 <php_source>\win32
 <php_source>\Zend
 
-It does not matter in which order you implement into the Additional Include Directories field
-
-Okay, we have added the Additional Directories so that we may use methods / functions from Php and Zend.
+It does not matter in which order you add them into the Additional Include Directories field
 
 
-7. PreProcessor Directives
+8. PreProcessor Directives
 
-The following directives will tell our build environment And Php and Zend that we want to configure our DLL with Php and Zend Windows 32-bit configuration. We also tell that the Zend debugger is set to off.
+The following directives will tell our build environment and Php and Zend that we want to configure our DLL with Php and Zend Windows 32-bit configuration. We also tell that the Zend debugger is set to off.
 To add the directives, please navigate to properties and click on C/C++ -> PreProcessor -> PreProcessor Directives and add the directives.
 
-PHP_WIN32
-ZEND_WIN32
+PHP_WIN32=1
+ZEND_WIN32=1
 ZTS=1
 ZEND_DEBUG=0
+_USE_32BIT_TIME_T=1
+PHP_COMPILER_ID="\"VC9\""
 
 
-8. Linker - Additional Library Directories and Dependencies
+9. Unicode settings
+
+Unicode settings are needed to be set to match PHP core compiler settings - i.e. it should be turned off. Otherwise there can be memory issues, when running the extension.
+
+Go to Properties -> General and set Character Set to Use Multi-Byte Character Set
+
+
+
+10. Linker - Additional Library Directories and Dependencies
 
 Navigate to Properties -> Linker -> General -> Additional Library Directories and add the following to it (path to the working PHP version on you comp /dev folder).
 
@@ -60,21 +72,48 @@ Now, to the dependencies. This will add the file that we need. It finds the file
 Navigate to Properties -> Linker -> Input -> Additional Dependencies and add the following to it.
 php5ts.lib 
 
-Note that earlier versions of Php use php5.lib
+Note that earlier versions of PHP use php5.lib
 
-9. Removing dependency on "masvc90d.dll"
 
-The dependency is on some debugger dll. Without it the extension dll won't start.
+
+11. Removing dependency on "masvc90d.dll"
+
+That is the dependency is on some debugger dll. Without it the extension dll won't start.
 In order to turn it off, go to Properties -> Linker -> General and set Enable Incremental Linking to No.
 
 Also go to Properties -> C/C++ -> General and set Debug Information Format to Program Database. This is needed, because default option "Program Database for Edit & Continue"
 doesn't work without incremental linking, thus produces warning every time the project is compiled.
 
 
-9. Simple extension, just for something to start from:
 
-------------
-#define PHP_COMPILER_ID  "VC9"
+12. Set path to PHP PDB (symbol) files
+
+This will let the debugger work, when running our PHP extension (but not to find the source code - see next item for that)
+
+Go to Tools -> Options -> Debugging -> Symbols menu and add path to the folder with PDB files for PHP core
+
+
+
+13. Set path to debug source files
+
+This will let the debugger to find PHP core source files, when debugging our extension.
+
+Go to solution properties -> Common Properties -> Debug source files and add the following directories:
+
+<php_source>\
+<php_source>\ext
+<php_source>\main
+<php_source>\TSRM
+<php_source>\win32
+<php_source>\Zend
+
+
+
+That's all
+
+-----------------------------------------------------------------
+Addendum - Simple extension, just for something to start from:
+
 
 #include "php.h"
 
