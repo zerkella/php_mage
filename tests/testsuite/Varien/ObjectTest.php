@@ -60,6 +60,8 @@ class Varien_ObjectTest extends PHPUnit_Framework_TestCase
             array('_underscore', array('protected')),
             array('_camelize', array('protected')),
             array('serialize', array('public')),
+            array('getOrigData', array('public')),
+            array('setOrigData', array('public')),
         );
     }
 

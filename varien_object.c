@@ -82,6 +82,8 @@ PHP_METHOD(Varien_Object, isEmpty);
 PHP_METHOD(Varien_Object, _underscore);
 PHP_METHOD(Varien_Object, _camelize);
 PHP_METHOD(Varien_Object, serialize);
+PHP_METHOD(Varien_Object, getOrigData);
+PHP_METHOD(Varien_Object, setOrigData);
 
 ZEND_BEGIN_ARG_INFO_EX(vo_getData_arg_info, 0, 0, 0)
 	ZEND_ARG_INFO(0, key)
@@ -190,11 +192,20 @@ ZEND_BEGIN_ARG_INFO_EX(vo__camelize_arg_info, 0, 0, 1)
 	ZEND_ARG_INFO(0, name)
 ZEND_END_ARG_INFO()
 
-ZEND_BEGIN_ARG_INFO_EX(vo_serialize_arg_info, 0, 0, 4)
+ZEND_BEGIN_ARG_INFO_EX(vo_serialize_arg_info, 0, 0, 0)
 	ZEND_ARG_INFO(0, attributes)
 	ZEND_ARG_INFO(0, valueSeparator)
 	ZEND_ARG_INFO(0, fieldSeparator)
 	ZEND_ARG_INFO(0, quote)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(vo_getOrigData_arg_info, 0, 0, 0)
+	ZEND_ARG_INFO(0, key)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(vo_setOrigData_arg_info, 0, 0, 0)
+	ZEND_ARG_INFO(0, key)
+	ZEND_ARG_INFO(0, data)
 ZEND_END_ARG_INFO()
 
 static const zend_function_entry vo_methods[] = {
@@ -234,6 +245,8 @@ static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, _underscore, vo__underscore_arg_info, ZEND_ACC_PROTECTED)
 	PHP_ME(Varien_Object, _camelize, vo__camelize_arg_info, ZEND_ACC_PROTECTED)
 	PHP_ME(Varien_Object, serialize, vo_serialize_arg_info, ZEND_ACC_PUBLIC)
+	PHP_ME(Varien_Object, getOrigData, vo_getOrigData_arg_info, ZEND_ACC_PUBLIC)
+	PHP_ME(Varien_Object, setOrigData, vo_setOrigData_arg_info, ZEND_ACC_PUBLIC)
 	PHP_FE_END
 };
 
@@ -241,7 +254,8 @@ static const zend_function_entry vo_methods[] = {
 static zend_class_entry *vo_class;
 static int vo_def_props_num;
 static vo_property_info_t *vo_data_property_info, *vo_isDeleted_property_info, *vo_idFieldName_property_info, 
-	*vo_syncFieldsMap_property_info, *vo_oldFieldsMap_property_info, *vo_hasDataChanges_property_info;
+	*vo_syncFieldsMap_property_info, *vo_oldFieldsMap_property_info, *vo_hasDataChanges_property_info,
+	*vo_origData_property_info;
 
 /* Forward declarations */
 static zend_object_value vo_create_handler(zend_class_entry *class_type TSRMLS_DC);
@@ -314,7 +328,8 @@ int mage_varien_object_minit(TSRMLS_D)
 	vo_idFieldName_property_info = get_protected_property_info("_idFieldName", sizeof("_idFieldName") - 1, TRUE);
 	vo_syncFieldsMap_property_info = get_protected_property_info("_syncFieldsMap", sizeof("_syncFieldsMap") - 1, TRUE);
 	vo_oldFieldsMap_property_info = get_protected_property_info("_oldFieldsMap", sizeof("_oldFieldsMap") - 1, TRUE);
-	vo_hasDataChanges_property_info = get_protected_property_info("_hasDataChanges", sizeof("_hasDataChanges") - 1, TRUE);;
+	vo_hasDataChanges_property_info = get_protected_property_info("_hasDataChanges", sizeof("_hasDataChanges") - 1, TRUE);
+	vo_origData_property_info = get_protected_property_info("_origData", sizeof("_origData") - 1, TRUE);
 
 	return SUCCESS;
 }
@@ -3305,4 +3320,140 @@ PHP_METHOD(Varien_Object, serialize)
 	/* Result */
 	smart_str_0(&result);
 	RETURN_STRINGL(result.c, result.len, 0);
+}
+
+/* public function getOrigData($key=null) */
+PHP_METHOD(Varien_Object, getOrigData)
+{
+	/* ---PHP---
+	if (is_null($key)) {
+		return $this->_origData;
+	}
+	return isset($this->_origData[$key]) ? $this->_origData[$key] : null;
+	*/
+
+	int num_args = ZEND_NUM_ARGS();
+	zval *obj_zval = getThis();
+	zval **origData;
+	zval *key;
+	long key_long;
+	char *key_str;
+	uint key_str_len;
+	zend_bool is_dispose_key_str;
+	int find_result;
+	zval **result;
+
+	if (!return_value_used) {
+		return;
+	}
+
+	if (num_args) {
+		if (zend_parse_parameters(num_args TSRMLS_CC, "|z!", &key) == FAILURE) {
+			RETURN_FALSE;
+		}
+	} else {
+		key = NULL;
+	}
+
+	VO_EXTRACT_PROPERTY(_origData, obj_zval, &origData);
+	if (key == NULL) {
+		MAKE_COPY_ZVAL(origData, return_value);
+		return;
+	} 
+
+	if (Z_TYPE_PP(origData) == IS_NULL) {
+		RETURN_NULL();
+	} else if (Z_TYPE_PP(origData) != IS_ARRAY) {
+		php_error_docref(NULL TSRMLS_CC, E_ERROR, "_origData is not an array, while processing it at getOrigData() method");
+	}
+
+	expand_to_long_or_string(key, &key_long, &key_str, &key_str_len, &is_dispose_key_str TSRMLS_CC);
+	if (key_str) {
+		find_result = zend_symtable_find(Z_ARRVAL_PP(origData), key_str, key_str_len + 1, (void **) &result);
+	} else {
+		find_result = zend_hash_index_find(Z_ARRVAL_PP(origData), key_long, (void **) &result);
+	}
+
+	if (is_dispose_key_str) {
+		efree(key_str);
+	}
+
+	if (find_result == FAILURE) {
+		RETURN_NULL();
+	} else {
+		MAKE_COPY_ZVAL(result, return_value);
+	}
+}
+
+/* public function setOrigData($key=null, $data=null) */
+PHP_METHOD(Varien_Object, setOrigData)
+{
+	/* ---PHP---
+    if (is_null($key)) {
+        $this->_origData = $this->_data;
+    } else {
+        $this->_origData[$key] = $data;
+    }
+    return $this;
+	*/
+
+	int num_args = ZEND_NUM_ARGS();
+	zval *obj_zval = getThis();
+	zend_class_entry *obj_ce = Z_OBJCE_P(obj_zval);
+	zval **origData;
+	zval **currentData;
+	zval *key, *data_param;
+	long key_long;
+	char *key_str;
+	uint key_str_len;
+	zend_bool is_dispose_key_str;
+
+	/* Extract parameters */
+	if (num_args >= 2) {
+		if (zend_parse_parameters(num_args TSRMLS_CC, "|z!z!", &key, &data_param) == FAILURE) {
+			RETURN_FALSE;
+		}
+	} else if (num_args) {
+		if (zend_parse_parameters(num_args TSRMLS_CC, "|z!", &key) == FAILURE) {
+			RETURN_FALSE;
+		}
+		data_param = NULL;
+	} else {
+		key = NULL;
+		data_param = NULL;
+	}
+
+	/* Update origData */
+	if (key == NULL) {
+		VO_EXTRACT_PROPERTY(_data, obj_zval, &currentData);
+		zend_update_property(obj_ce, obj_zval, "_origData", sizeof("_origData") - 1, *currentData TSRMLS_CC);
+	} else {
+		if (data_param == NULL) {
+			ALLOC_INIT_ZVAL(data_param);
+			ZVAL_NULL(data_param);
+		} else {
+			Z_ADDREF_P(data_param);
+		}
+
+		VO_EXTRACT_PROPERTY(_origData, obj_zval, &origData);
+		SEPARATE_ZVAL_IF_NOT_REF(origData);
+		if (Z_TYPE_PP(origData) != IS_ARRAY) {
+			convert_to_array(*origData);
+		}
+
+		expand_to_long_or_string(key, &key_long, &key_str, &key_str_len, &is_dispose_key_str TSRMLS_CC);
+		if (key_str) {
+			zend_symtable_update(Z_ARRVAL_PP(origData), key_str, key_str_len + 1, &data_param, sizeof(zval *), NULL);
+		} else {
+			zend_hash_index_update(Z_ARRVAL_PP(origData), key_long, &data_param, sizeof(zval *), NULL);
+		}
+
+		if (is_dispose_key_str) {
+			efree(key_str);
+		}
+	}
+
+	if (return_value_used) {
+		MAKE_COPY_ZVAL(&obj_zval, return_value);
+	}
 }
