@@ -63,6 +63,7 @@ class Varien_ObjectTest extends PHPUnit_Framework_TestCase
             array('getOrigData', array('public')),
             array('setOrigData', array('public')),
             array('dataHasChangedFor', array('public')),
+            array('setDataChanges', array('public')),
         );
     }
 

@@ -85,6 +85,7 @@ PHP_METHOD(Varien_Object, serialize);
 PHP_METHOD(Varien_Object, getOrigData);
 PHP_METHOD(Varien_Object, setOrigData);
 PHP_METHOD(Varien_Object, dataHasChangedFor);
+PHP_METHOD(Varien_Object, setDataChanges);
 
 ZEND_BEGIN_ARG_INFO_EX(vo_getData_arg_info, 0, 0, 0)
 	ZEND_ARG_INFO(0, key)
@@ -213,6 +214,10 @@ ZEND_BEGIN_ARG_INFO_EX(vo_dataHasChangedFor_arg_info, 0, 0, 1)
 	ZEND_ARG_INFO(0, field)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(vo_setDataChanges_arg_info, 0, 0, 1)
+	ZEND_ARG_INFO(0, value)
+ZEND_END_ARG_INFO()
+
 static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, __construct, NULL, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
 	PHP_ME(Varien_Object, _initOldFieldsMap, NULL, ZEND_ACC_PROTECTED)
@@ -253,6 +258,7 @@ static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, getOrigData, vo_getOrigData_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, setOrigData, vo_setOrigData_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, dataHasChangedFor, vo_dataHasChangedFor_arg_info, ZEND_ACC_PUBLIC)
+	PHP_ME(Varien_Object, setDataChanges, vo_setDataChanges_arg_info, ZEND_ACC_PUBLIC)
 	PHP_FE_END
 };
 
@@ -3505,4 +3511,28 @@ PHP_METHOD(Varien_Object, dataHasChangedFor)
 
 	zval_ptr_dtor(&newData);
 	zval_ptr_dtor(&origData);
+}
+
+/* public function setDataChanges($value) */
+PHP_METHOD(Varien_Object, setDataChanges)
+{
+	/* ---PHP---
+	$this->_hasDataChanges = (bool)$value;
+	return $this;
+	*/
+
+	int num_args = ZEND_NUM_ARGS();
+	zval *obj_zval = getThis();
+	zend_class_entry *obj_ce = Z_OBJCE_P(obj_zval);
+	zval *value;
+
+	if (zend_parse_parameters(num_args TSRMLS_CC, "z", &value) == FAILURE) {
+		RETURN_FALSE;
+	}
+
+	zend_update_property_bool(obj_ce, obj_zval, "_hasDataChanges", sizeof("_hasDataChanges") - 1, zval_is_true(value) TSRMLS_CC);
+	
+	if (return_value_used) {
+		MAKE_COPY_ZVAL(&obj_zval, return_value);
+	}
 }
