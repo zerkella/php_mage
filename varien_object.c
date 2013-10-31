@@ -84,6 +84,7 @@ PHP_METHOD(Varien_Object, _camelize);
 PHP_METHOD(Varien_Object, serialize);
 PHP_METHOD(Varien_Object, getOrigData);
 PHP_METHOD(Varien_Object, setOrigData);
+PHP_METHOD(Varien_Object, dataHasChangedFor);
 
 ZEND_BEGIN_ARG_INFO_EX(vo_getData_arg_info, 0, 0, 0)
 	ZEND_ARG_INFO(0, key)
@@ -208,6 +209,10 @@ ZEND_BEGIN_ARG_INFO_EX(vo_setOrigData_arg_info, 0, 0, 0)
 	ZEND_ARG_INFO(0, data)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(vo_dataHasChangedFor_arg_info, 0, 0, 1)
+	ZEND_ARG_INFO(0, field)
+ZEND_END_ARG_INFO()
+
 static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, __construct, NULL, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
 	PHP_ME(Varien_Object, _initOldFieldsMap, NULL, ZEND_ACC_PROTECTED)
@@ -247,6 +252,7 @@ static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, serialize, vo_serialize_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, getOrigData, vo_getOrigData_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, setOrigData, vo_setOrigData_arg_info, ZEND_ACC_PUBLIC)
+	PHP_ME(Varien_Object, dataHasChangedFor, vo_dataHasChangedFor_arg_info, ZEND_ACC_PUBLIC)
 	PHP_FE_END
 };
 
@@ -3456,4 +3462,47 @@ PHP_METHOD(Varien_Object, setOrigData)
 	if (return_value_used) {
 		MAKE_COPY_ZVAL(&obj_zval, return_value);
 	}
+}
+
+/* public function dataHasChangedFor($field) */
+PHP_METHOD(Varien_Object, dataHasChangedFor)
+{
+	/* ---PHP---
+	$newData = $this->getData($field);
+	$origData = $this->getOrigData($field);
+	return $newData!=$origData;
+	*/
+
+	int num_args = ZEND_NUM_ARGS();
+	zval *obj_zval = getThis();
+	zend_class_entry *obj_ce = Z_OBJCE_P(obj_zval);
+	zval *field, *newData, *origData;
+	int compare_result;
+
+	if (!return_value_used) {
+		return;
+	}
+
+	if (zend_parse_parameters(num_args TSRMLS_CC, "z", &field) == FAILURE) {
+		RETURN_FALSE;
+	}
+
+	zend_call_method_with_1_params(&obj_zval, obj_ce, NULL, "getdata", &newData, field);
+	if (!newData) {
+		RETURN_FALSE;
+	}
+
+	zend_call_method_with_1_params(&obj_zval, obj_ce, NULL, "getorigdata", &origData, field);
+	if (!origData) {
+		zval_ptr_dtor(&newData);
+		RETURN_FALSE;
+	}
+
+	compare_result = is_not_equal_function(return_value, newData, origData TSRMLS_CC);
+	if (compare_result == FAILURE) {
+		RETVAL_FALSE;
+	}
+
+	zval_ptr_dtor(&newData);
+	zval_ptr_dtor(&origData);
 }
