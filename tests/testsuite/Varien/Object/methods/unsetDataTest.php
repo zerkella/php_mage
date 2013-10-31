@@ -145,4 +145,12 @@ class Varien_Object_methods_unsetDataTest extends PHPUnit_Framework_TestCase
 
         $this->assertSame(array('a' => 'b', 5 => 6), $data);
     }
+
+    public function testUnsetDataRaisesHasDataChanges()
+    {
+        $object = new Varien_Object();
+        $this->assertFalse($object->hasDataChanges());
+        $object->unsetData('a');
+        $this->assertTrue($object->hasDataChanges());
+    }
 }

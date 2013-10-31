@@ -200,4 +200,12 @@ class Varien_Object_methods_setDataTest extends PHPUnit_Framework_TestCase
         $object->setData(array(2));
         $this->assertSame(array('a' => 'b'), $data);
     }
+
+    public function testSetDataRaisesHasDataChanges()
+    {
+        $object = new Varien_Object();
+        $this->assertFalse($object->hasDataChanges());
+        $object->setData('a', 'b');
+        $this->assertTrue($object->hasDataChanges());
+    }
 }
