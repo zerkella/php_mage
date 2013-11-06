@@ -86,6 +86,7 @@ PHP_METHOD(Varien_Object, getOrigData);
 PHP_METHOD(Varien_Object, setOrigData);
 PHP_METHOD(Varien_Object, dataHasChangedFor);
 PHP_METHOD(Varien_Object, setDataChanges);
+PHP_METHOD(Varien_Object, debug);
 
 ZEND_BEGIN_ARG_INFO_EX(vo_getData_arg_info, 0, 0, 0)
 	ZEND_ARG_INFO(0, key)
@@ -214,6 +215,11 @@ ZEND_BEGIN_ARG_INFO_EX(vo_setDataChanges_arg_info, 0, 0, 1)
 	ZEND_ARG_INFO(0, value)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(vo_debug_arg_info, 0, 0, 0)
+	ZEND_ARG_INFO(0, data)
+	ZEND_ARG_INFO(0, objects)
+ZEND_END_ARG_INFO()
+
 static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, __construct, NULL, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
 	PHP_ME(Varien_Object, _initOldFieldsMap, NULL, ZEND_ACC_PROTECTED)
@@ -255,6 +261,7 @@ static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, setOrigData, vo_setOrigData_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, dataHasChangedFor, vo_dataHasChangedFor_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, setDataChanges, vo_setDataChanges_arg_info, ZEND_ACC_PUBLIC)
+	PHP_ME(Varien_Object, debug, vo_debug_arg_info, ZEND_ACC_PUBLIC)
 	PHP_FE_END
 };
 
@@ -3474,4 +3481,32 @@ PHP_METHOD(Varien_Object, setDataChanges)
 	if (return_value_used) {
 		MAKE_COPY_ZVAL(&obj_zval, return_value);
 	}
+}
+
+/* public function debug($data=null, &$objects=array()) */
+PHP_METHOD(Varien_Object, debug)
+{
+	/* ---PHP---
+	if (is_null($data)) {
+		$hash = spl_object_hash($this);
+		if (!empty($objects[$hash])) {
+			return '*** RECURSION ***';
+		}
+		$objects[$hash] = true;
+		$data = $this->getData();
+	}
+	$debug = array();
+	foreach ($data as $key=>$value) {
+		if (is_scalar($value)) {
+			$debug[$key] = $value;
+		} elseif (is_array($value)) {
+			$debug[$key] = $this->debug($value, $objects);
+		} elseif ($value instanceof Varien_Object) {
+			$debug[$key.' ('.get_class($value).')'] = $value->debug(null, $objects);
+		}
+	}
+	return $debug;
+	*/
+
+	/* Not implemented to not waste time on a method, not needed for the concept */
 }
