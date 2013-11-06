@@ -208,4 +208,15 @@ class Varien_Object_methods_setDataTest extends PHPUnit_Framework_TestCase
         $object->setData('a', 'b');
         $this->assertTrue($object->hasDataChanges());
     }
+
+    /**
+     * Test that a warning is correctly reported, when $key parameter is not passed
+     *
+     * @expectedException PHPUnit_Framework_Error_Warning
+     */
+    public function testSetDataNoParams()
+    {
+        $object = new Varien_Object();
+        $object->setData();
+    }
 }

@@ -243,4 +243,15 @@ class Varien_Object_methods_getSetIdTest extends PHPUnit_Framework_TestCase
             ->will($this->throwException(new BadMethodCallException('some exception')));
         $result = $object->setId('value');
     }
+
+    /**
+     * Test that a warning is correctly reported, when $value parameter is not passed
+     *
+     * @expectedException PHPUnit_Framework_Error_Warning
+     */
+    public function testSetIdNoParams()
+    {
+        $object = new Varien_Object();
+        $object->setId();
+    }
 }

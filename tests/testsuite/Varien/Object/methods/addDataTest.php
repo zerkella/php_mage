@@ -37,4 +37,26 @@ class Varien_Object_methods_addDataTest extends PHPUnit_Framework_TestCase
         $result = $object->addData(array());
         $this->assertSame($object, $result);
     }
+
+    /**
+     * Test that a warning is correctly reported, when $arr parameter is not passed
+     *
+     * @expectedException PHPUnit_Framework_Error_Warning
+     */
+    public function testAddDataNoParams()
+    {
+        $object = new Varien_Object();
+        $object->addData();
+    }
+
+    /**
+     * Test that an error is correctly reported, when $arr parameter of wrong type
+     *
+     * @expectedException PHPUnit_Framework_Error
+     */
+    public function testAddDataWrongParam()
+    {
+        $object = new Varien_Object();
+        $object->addData('a');
+    }
 }

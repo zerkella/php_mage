@@ -144,10 +144,6 @@ ZEND_BEGIN_ARG_INFO_EX(vo_hasData_arg_info, 0, 0, 0)
 	ZEND_ARG_INFO(0, key)
 ZEND_END_ARG_INFO()
 
-ZEND_BEGIN_ARG_INFO_EX(vo___toArray_arg_info, 0, 0, 0)
-	ZEND_ARG_ARRAY_INFO(0, arrAttributes, 0)
-ZEND_END_ARG_INFO()
-
 ZEND_BEGIN_ARG_INFO_EX(vo_toArray_arg_info, 0, 0, 0)
 	ZEND_ARG_ARRAY_INFO(0, arrAttributes, 0)
 ZEND_END_ARG_INFO()
@@ -240,7 +236,7 @@ static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, getDataUsingMethod, vo_getDataUsingMethod_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, getDataSetDefault, vo_getDataSetDefault_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, hasData, vo_hasData_arg_info, ZEND_ACC_PUBLIC)
-	PHP_ME(Varien_Object, __toArray, vo___toArray_arg_info, ZEND_ACC_PUBLIC)
+	PHP_ME(Varien_Object, __toArray, vo_toArray_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, toArray, vo_toArray_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, _prepareArray, vo__prepareArray_arg_info, ZEND_ACC_PROTECTED)
 	PHP_ME(Varien_Object, __toXml, vo_toXml_arg_info, ZEND_ACC_PROTECTED)
@@ -478,10 +474,12 @@ PHP_METHOD(Varien_Object, __construct)
 	$this->_data = $args[0];
 	*/
 	if (num_args) {
-		if ((zend_parse_parameters(num_args TSRMLS_CC, "a!", &param) == SUCCESS)
-			&& zend_hash_num_elements(Z_ARRVAL_P(param))) 
-		{
-			zend_update_property(obj_ce, obj_zval, "_data", sizeof("_data") - 1, param TSRMLS_CC);
+		if (zend_parse_parameters(num_args TSRMLS_CC, "z!", &param) == SUCCESS) {
+			if (param && (Z_TYPE_P(param) == IS_ARRAY) && zend_hash_num_elements(Z_ARRVAL_P(param))) {
+				zend_update_property(obj_ce, obj_zval, "_data", sizeof("_data") - 1, param TSRMLS_CC);
+			}
+		} else {
+			return;
 		}
 	}
 
@@ -971,7 +969,7 @@ PHP_METHOD(Varien_Object, getData)
 			parse_result = zend_parse_parameters(num_args TSRMLS_CC, "s!s!", &key, &key_len, &index, &index_len);
 		}
 		if (parse_result == FAILURE) {
-			RETURN_NULL();
+			return;
 		}
 		is_return_whole_data = !key || !key_len;
 	} else {
@@ -1051,7 +1049,6 @@ PHP_METHOD(Varien_Object, setData)
 	int num_args = ZEND_NUM_ARGS();
 
 	zval *key_zval, *value_zval = NULL;
-	int parse_result;
 	long key_long;
 	char *key_str;
 	uint key_str_len;
@@ -1073,9 +1070,8 @@ PHP_METHOD(Varien_Object, setData)
 	zend_update_property_bool(obj_ce, obj_zval, "_hasDataChanges", sizeof("_hasDataChanges") - 1, TRUE TSRMLS_CC);
 	
 	/* Process params */
-	parse_result = zend_parse_parameters(num_args TSRMLS_CC, "z|z", &key_zval, &value_zval);
-	if (parse_result == FAILURE) {
-		php_error_docref(NULL TSRMLS_CC, E_ERROR, "Couldn't parse parameters of setData() call");
+	if (zend_parse_parameters(num_args TSRMLS_CC, "z|z", &key_zval, &value_zval) == FAILURE) {
+		return;
 	}
 
 	if (Z_TYPE_P(key_zval) == IS_ARRAY) {
@@ -1176,14 +1172,12 @@ PHP_METHOD(Varien_Object, isDeleted)
 	zval *obj_zval = getThis();
 	zend_class_entry *obj_ce = Z_OBJCE_P(obj_zval);
 	int num_args = ZEND_NUM_ARGS();
-	int parse_result;
 	zval *isDeleted;
 	zval **old_isDeleted;
 
 	if (num_args) {
-		parse_result = zend_parse_parameters(num_args TSRMLS_CC, "z!", &isDeleted);
-		if (parse_result == FAILURE) {
-			php_error_docref(NULL TSRMLS_CC, E_ERROR, "Couldn't parse parameters of isDeleted() call");
+		if (zend_parse_parameters(num_args TSRMLS_CC, "z!", &isDeleted) == FAILURE) {
+			return;
 		}
 	} else {
 		isDeleted = NULL;
@@ -1212,16 +1206,11 @@ PHP_METHOD(Varien_Object, setIdFieldName)
 	zval *obj_zval = getThis();
 	zend_class_entry *obj_ce = Z_OBJCE_P(obj_zval);
 	int num_args = ZEND_NUM_ARGS();
-	int parse_result;
 	zval *name;
 
-	if (num_args) {
-		parse_result = zend_parse_parameters(num_args TSRMLS_CC, "z", &name);
-		if (parse_result == FAILURE) {
-			php_error_docref(NULL TSRMLS_CC, E_ERROR, "Couldn't parse parameters of setIdFieldName() call");
-		}
-	} else {
-		php_error_docref(NULL TSRMLS_CC, E_ERROR, "$name parameter is required");
+
+	if (zend_parse_parameters(num_args TSRMLS_CC, "z", &name) == FAILURE) {
+		return;
 	}
 
 	zend_update_property(obj_ce, obj_zval, "_idFieldName", sizeof("_idFieldName") - 1, name TSRMLS_CC);
@@ -1318,17 +1307,11 @@ PHP_METHOD(Varien_Object, setId)
 	zend_class_entry *obj_ce = Z_OBJCE_P(obj_zval);
 	int num_args = ZEND_NUM_ARGS();
 	zval *id_field_name = NULL;
-	int parse_result;
 	zval *value;
 
 	/* Get passed $value */
-	if (num_args) {
-		parse_result = zend_parse_parameters(num_args TSRMLS_CC, "z", &value);
-		if (parse_result == FAILURE) {
-			php_error_docref(NULL TSRMLS_CC, E_ERROR, "Couldn't parse parameters of getId() call");
-		}
-	} else {
-		php_error_docref(NULL TSRMLS_CC, E_ERROR, "$value parameter is required");
+	if (zend_parse_parameters(num_args TSRMLS_CC, "z", &value) == FAILURE) {
+		return;
 	}
 
 	/* Set $value to the 'id' field */
@@ -1360,7 +1343,6 @@ PHP_METHOD(Varien_Object, addData)
 	zend_class_entry *obj_ce = Z_OBJCE_P(obj_zval);
 	int num_args = ZEND_NUM_ARGS();
 	HashTable *ht_arr;
-	int parse_result;
 	int num;
 	int current_key_type;
 	ulong current_index;
@@ -1369,13 +1351,8 @@ PHP_METHOD(Varien_Object, addData)
 	zval *index_zval, **value_zval;
 
 	/* Get passed $arr */
-	if (num_args) {
-		parse_result = zend_parse_parameters(num_args TSRMLS_CC, "h", &ht_arr);
-		if (parse_result == FAILURE) {
-			php_error_docref(NULL TSRMLS_CC, E_ERROR, "Couldn't parse parameter of addData() call");
-		}
-	} else {
-		php_error_docref(NULL TSRMLS_CC, E_ERROR, "$arr parameter is required");
+	if (zend_parse_parameters(num_args TSRMLS_CC, "h", &ht_arr) == FAILURE) {
+		return;
 	}
 
 	num = zend_hash_num_elements(ht_arr);
@@ -1426,9 +1403,8 @@ PHP_METHOD(Varien_Object, unsetData)
 	zval *obj_zval = getThis();
 	zend_class_entry *obj_ce = Z_OBJCE_P(obj_zval);
 	int num_args = ZEND_NUM_ARGS();
-	zval *key;
+	zval *key = NULL;
 	HashTable *ht_data, *ht_sync;
-	int parse_result;
 	long key_long, field_long;
 	char *key_str, *field_str;
 	uint key_str_len, field_str_len;
@@ -1441,13 +1417,8 @@ PHP_METHOD(Varien_Object, unsetData)
 	/* Raise _hasDataChanges */
 	zend_update_property_bool(obj_ce, obj_zval, "_hasDataChanges", sizeof("_hasDataChanges") - 1, TRUE TSRMLS_CC);
 
-	if (num_args) {
-		parse_result = zend_parse_parameters(num_args TSRMLS_CC, "z!", &key);
-		if (parse_result == FAILURE) {
-			php_error_docref(NULL TSRMLS_CC, E_ERROR, "Couldn't parse parameters of unsetData() call");
-		}
-	} else {
-		key = NULL;
+	if (zend_parse_parameters(num_args TSRMLS_CC, "|z!", &key) == FAILURE) {
+		return;
 	}
 
 	/* Fetch data property array */
@@ -1527,7 +1498,6 @@ PHP_METHOD(Varien_Object, unsetOldData)
 	int num_args = ZEND_NUM_ARGS();
 	zval *key;
 	HashTable *ht_data;
-	int parse_result;
 	long key_long;
 	char *key_str;
 	uint key_str_len;
@@ -1541,9 +1511,8 @@ PHP_METHOD(Varien_Object, unsetOldData)
 	uint current_key_len;
 
 	if (num_args) {
-		parse_result = zend_parse_parameters(num_args TSRMLS_CC, "z!", &key);
-		if (parse_result == FAILURE) {
-			php_error_docref(NULL TSRMLS_CC, E_ERROR, "Couldn't parse parameters of unsetOldData() call");
+		if (zend_parse_parameters(num_args TSRMLS_CC, "z!", &key) == FAILURE) {
+			return;
 		}
 	} else {
 		key = NULL;
@@ -1604,7 +1573,6 @@ PHP_METHOD(Varien_Object, _getData)
 
 	zval *obj_zval = getThis();
 	int num_args = ZEND_NUM_ARGS();
-	int parse_result;
 	char *key;
 	uint key_len;
 	zval **data;
@@ -1615,13 +1583,8 @@ PHP_METHOD(Varien_Object, _getData)
 		return;
 	}
 
-	if (num_args) {
-		parse_result = zend_parse_parameters(num_args TSRMLS_CC, "s", &key, &key_len);
-		if (parse_result == FAILURE) {
-			php_error_docref(NULL TSRMLS_CC, E_ERROR, "Couldn't parse parameters of _getData() call");
-		}
-	} else {
-		php_error_docref(NULL TSRMLS_CC, E_ERROR, "$key parameter is required");
+	if (zend_parse_parameters(num_args TSRMLS_CC, "s", &key, &key_len) == FAILURE) {
+		return;
 	}
 
 	/* Extract and check property */
@@ -1688,7 +1651,6 @@ PHP_METHOD(Varien_Object, setDataUsingMethod)
 
 	zval *obj_zval = getThis();
 	int num_args = ZEND_NUM_ARGS();
-	int parse_result;
 	char *key;
 	uint key_len;
 	zval *args;
@@ -1697,15 +1659,10 @@ PHP_METHOD(Varien_Object, setDataUsingMethod)
 	char *method;
 	uint method_len;
 
-	if (!num_args) {
-		php_error_docref(NULL TSRMLS_CC, E_ERROR, "$key parameter is required");
-	}
-
 	/* Extract parameters */
 	args = NULL;
-	parse_result = zend_parse_parameters(num_args TSRMLS_CC, "s|z", &key, &key_len, &args);
-	if (parse_result == FAILURE) {
-		php_error_docref(NULL TSRMLS_CC, E_ERROR, "Couldn't parse parameters of setDataUsingMethod() call");
+	if (zend_parse_parameters(num_args TSRMLS_CC, "s|z", &key, &key_len, &args) == FAILURE) {
+		return;
 	}
 
 	is_free_args = 0;
@@ -1751,7 +1708,6 @@ PHP_METHOD(Varien_Object, getDataUsingMethod)
 
 	zval *obj_zval = getThis();
 	int num_args = ZEND_NUM_ARGS();
-	int parse_result;
 	char *key;
 	uint key_len;
 	zval *args;
@@ -1760,15 +1716,10 @@ PHP_METHOD(Varien_Object, getDataUsingMethod)
 	uint method_len;
 	zval **retval_ptr_ptr;
 
-	if (!num_args) {
-		php_error_docref(NULL TSRMLS_CC, E_ERROR, "$key parameter is required");
-	}
-
 	/* Extract parameters */
 	args = NULL;
-	parse_result = zend_parse_parameters(num_args TSRMLS_CC, "s|z", &key, &key_len, &args);
-	if (parse_result == FAILURE) {
-		php_error_docref(NULL TSRMLS_CC, E_ERROR, "Couldn't parse parameters of getDataUsingMethod() call");
+	if (zend_parse_parameters(num_args TSRMLS_CC, "s|z", &key, &key_len, &args) == FAILURE) {
+		return;
 	}
 
 	is_free_args = 0;
@@ -1815,7 +1766,6 @@ PHP_METHOD(Varien_Object, getDataSetDefault)
 
 	zval *obj_zval = getThis();
 	int num_args = ZEND_NUM_ARGS();
-	int parse_result;
 	char *key;
 	uint key_len;
 	zval **data;
@@ -1824,13 +1774,8 @@ PHP_METHOD(Varien_Object, getDataSetDefault)
 	zval *default_param;
 	zend_bool is_set_default;
 
-	if (num_args >= 2) {
-		parse_result = zend_parse_parameters(num_args TSRMLS_CC, "sz", &key, &key_len, &default_param);
-		if (parse_result == FAILURE) {
-			php_error_docref(NULL TSRMLS_CC, E_ERROR, "Couldn't parse parameters of getDataSetDefault() call");
-		}
-	} else {
-		php_error_docref(NULL TSRMLS_CC, E_ERROR, "$key and $default parameters are required");
+	if (zend_parse_parameters(num_args TSRMLS_CC, "sz", &key, &key_len, &default_param) == FAILURE) {
+		return;
 	}
 
 	/* Extract and check _data property */
@@ -1872,7 +1817,6 @@ PHP_METHOD(Varien_Object, hasData)
 
 	zval *obj_zval = getThis();
 	int num_args = ZEND_NUM_ARGS();
-	int parse_result;
 	zval **data;
 	HashTable *ht_data;
 	zval *key;
@@ -1892,9 +1836,8 @@ PHP_METHOD(Varien_Object, hasData)
 	/* Parse parameter and decide, whether we should just return _data */
 	is_return_data = TRUE;
 	if (num_args) {
-		parse_result = zend_parse_parameters(num_args TSRMLS_CC, "z!", &key);
-		if (parse_result == FAILURE) {
-			php_error_docref(NULL TSRMLS_CC, E_ERROR, "Couldn't parse parameters of hasData() call");
+		if (zend_parse_parameters(num_args TSRMLS_CC, "z!", &key) == FAILURE) {
+			return;
 		}
 		if (key && (Z_TYPE_P(key) == IS_STRING) && Z_STRLEN_P(key)) {
 			is_return_data = FALSE;
@@ -1926,7 +1869,6 @@ PHP_METHOD(Varien_Object, __toArray)
 
 	zval *obj_zval = getThis();
 	int num_args = ZEND_NUM_ARGS();
-	int parse_result;
 	zval **data;
 	HashTable *ht_data;
 	zval *arrAttributes;
@@ -1955,11 +1897,10 @@ PHP_METHOD(Varien_Object, __toArray)
 	/* Parse parameter and decide, whether we should just return _data */
 	num_attributes = 0;
 	if (num_args) {
-		parse_result = zend_parse_parameters(num_args TSRMLS_CC, "z", &arrAttributes);
-		if (parse_result == FAILURE) {
-			php_error_docref(NULL TSRMLS_CC, E_ERROR, "Couldn't parse parameters of __toArray() call");
+		if (zend_parse_parameters(num_args TSRMLS_CC, "a", &arrAttributes) == FAILURE) {
+			return;
 		}
-		num_attributes = zend_hash_num_elements(Z_ARRVAL_P(arrAttributes)); /* Array type is forced by argument declaration */
+		num_attributes = zend_hash_num_elements(Z_ARRVAL_P(arrAttributes));
 	}
 
 	/* Return just _data */
@@ -2022,7 +1963,6 @@ PHP_METHOD(Varien_Object, toArray)
 	zend_class_entry *obj_ce = Z_OBJCE_P(obj_zval);
 	int num_args = ZEND_NUM_ARGS();
 	zval *arrAttributes;
-	int parse_result;
 	zval *result;
 	zend_bool arrAttributes_dispose;
 
@@ -2032,9 +1972,8 @@ PHP_METHOD(Varien_Object, toArray)
 
 	/* Parse parameter and decide, whether we should just return _data */
 	if (num_args) {
-		parse_result = zend_parse_parameters(num_args TSRMLS_CC, "z", &arrAttributes);
-		if (parse_result == FAILURE) {
-			php_error_docref(NULL TSRMLS_CC, E_ERROR, "Couldn't parse parameters of toArray() call");
+		if (zend_parse_parameters(num_args TSRMLS_CC, "a", &arrAttributes) == FAILURE) {
+			return;
 		}
 		arrAttributes_dispose = FALSE;
 	} else {
@@ -2079,7 +2018,7 @@ PHP_METHOD(Varien_Object, _prepareArray)
 	zend_bool is_dispose_element_str;
 
 	if (zend_parse_parameters(num_args TSRMLS_CC, "z|h", &arr, &ht_elements) == FAILURE) {
-		RETURN_FALSE;
+		return;
 	}
 
 	/* Process $elements */
@@ -2200,7 +2139,7 @@ PHP_METHOD(Varien_Object, __toXml)
 	}
 
 	if (zend_parse_parameters(num_args TSRMLS_CC, "|as!bz!", &arrAttributes, &rootName, &rootName_len, &addOpenTag, &addCdata) == FAILURE) {
-		RETURN_FALSE;
+		return;
 	}
 
 	/* Defaults */
@@ -2366,7 +2305,7 @@ PHP_METHOD(Varien_Object, toXml)
 	}
 
 	if (zend_parse_parameters(num_args TSRMLS_CC, "|azzz", &arrAttributes, &rootName, &addOpenTag, &addCdata) == FAILURE) {
-		RETURN_FALSE;
+		return;
 	}
 
 	/* Defaults */
@@ -2472,7 +2411,7 @@ PHP_METHOD(Varien_Object, __toJson)
 	}
 
 	if (zend_parse_parameters(num_args TSRMLS_CC, "|a", &arrAttributes) == FAILURE) {
-		RETURN_FALSE;
+		return;
 	}
 
 	/* Fetch arrData */
@@ -2529,7 +2468,7 @@ PHP_METHOD(Varien_Object, toJson)
 	}
 
 	if (zend_parse_parameters(num_args TSRMLS_CC, "|a", &arrAttributes) == FAILURE) {
-		RETURN_FALSE;
+		return;
 	}
 
 	/* Fetch arrData */
@@ -2812,7 +2751,7 @@ PHP_METHOD(Varien_Object, toString)
 	}
 
 	if (zend_parse_parameters(num_args TSRMLS_CC, "|z!", &format) == FAILURE) {
-		RETURN_FALSE;
+		return;
 	}
 
 	if (!format || !i_zend_is_true(format)) {
@@ -2917,7 +2856,7 @@ PHP_METHOD(Varien_Object, __call)
 	zval **data_pzval;
 
 	if (zend_parse_parameters(num_args TSRMLS_CC, "sH", &method, &method_len, &ht_args) == FAILURE) {
-		RETURN_FALSE;
+		return;
 	}
 	
 	/* Perform appropriate action */
@@ -3030,7 +2969,7 @@ PHP_METHOD(Varien_Object, __get)
 	}
 
 	if (zend_parse_parameters(num_args TSRMLS_CC, "s!", &var, &var_len) == FAILURE) {
-		RETURN_FALSE;
+		return;
 	}
 
 	ALLOC_INIT_ZVAL(var_zval);
@@ -3068,7 +3007,7 @@ PHP_METHOD(Varien_Object, __set)
 	zval *var_zval, *value_zval;
 
 	if (zend_parse_parameters(num_args TSRMLS_CC, "s!z", &var, &var_len, &value_zval) == FAILURE) {
-		RETURN_FALSE;
+		return;
 	}
 
 	ALLOC_INIT_ZVAL(var_zval);
@@ -3128,7 +3067,7 @@ PHP_METHOD(Varien_Object, _underscore)
 	}
 
 	if (zend_parse_parameters(num_args TSRMLS_CC, "s", &name, &name_len) == FAILURE) {
-		RETURN_FALSE;
+		return;
 	}
 
 	vo_underscore(name, name_len, &name_u, &name_u_len TSRMLS_CC);
@@ -3151,7 +3090,7 @@ PHP_METHOD(Varien_Object, _camelize)
 	}
 
 	if (zend_parse_parameters(num_args TSRMLS_CC, "s", &name, &name_len) == FAILURE) {
-		RETURN_FALSE;
+		return;
 	}
 
 	vo_camelize(name, name_len, NULL, 0, &name_c, &name_c_len TSRMLS_CC);
@@ -3219,7 +3158,7 @@ PHP_METHOD(Varien_Object, serialize)
 
 	if (zend_parse_parameters(num_args TSRMLS_CC, "|z!sss", &attributes, &valueSeparator, 
 		&valueSeparator_len, &fieldSeparator, &fieldSeparator_len, &quote, &quote_len) == FAILURE) {
-		RETURN_FALSE;
+		return;
 	}
 
 	/* Check, whether we need to serialize whole data, or just selected attributes */
@@ -3361,7 +3300,7 @@ PHP_METHOD(Varien_Object, getOrigData)
 
 	if (num_args) {
 		if (zend_parse_parameters(num_args TSRMLS_CC, "|z!", &key) == FAILURE) {
-			RETURN_FALSE;
+			return;
 		}
 	} else {
 		key = NULL;
@@ -3423,11 +3362,11 @@ PHP_METHOD(Varien_Object, setOrigData)
 	/* Extract parameters */
 	if (num_args >= 2) {
 		if (zend_parse_parameters(num_args TSRMLS_CC, "|z!z!", &key, &data_param) == FAILURE) {
-			RETURN_FALSE;
+			return;
 		}
 	} else if (num_args) {
 		if (zend_parse_parameters(num_args TSRMLS_CC, "|z!", &key) == FAILURE) {
-			RETURN_FALSE;
+			return;
 		}
 		data_param = NULL;
 	} else {
@@ -3490,7 +3429,7 @@ PHP_METHOD(Varien_Object, dataHasChangedFor)
 	}
 
 	if (zend_parse_parameters(num_args TSRMLS_CC, "z", &field) == FAILURE) {
-		RETURN_FALSE;
+		return;
 	}
 
 	zend_call_method_with_1_params(&obj_zval, obj_ce, NULL, "getdata", &newData, field);
@@ -3527,7 +3466,7 @@ PHP_METHOD(Varien_Object, setDataChanges)
 	zval *value;
 
 	if (zend_parse_parameters(num_args TSRMLS_CC, "z", &value) == FAILURE) {
-		RETURN_FALSE;
+		return;
 	}
 
 	zend_update_property_bool(obj_ce, obj_zval, "_hasDataChanges", sizeof("_hasDataChanges") - 1, zval_is_true(value) TSRMLS_CC);

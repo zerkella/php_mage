@@ -136,4 +136,15 @@ class Varien_Object_methods_getDataUsingMethodTest extends PHPUnit_Framework_Tes
         $result = $object->getDataUsingMethod('final_price');
         $this->assertEquals('$15.00', $result);
     }
+
+    /**
+     * Test that a warning is correctly reported, when $key parameter is not passed
+     *
+     * @expectedException PHPUnit_Framework_Error_Warning
+     */
+    public function testGetDataUsingMethodNoParams()
+    {
+        $object = new Varien_Object();
+        $object->getDataUsingMethod();
+    }
 }

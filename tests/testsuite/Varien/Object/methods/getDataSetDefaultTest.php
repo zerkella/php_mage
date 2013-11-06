@@ -95,4 +95,26 @@ class Varien_Object_methods_getDataSetDefaultTest extends PHPUnit_Framework_Test
         $this->assertSame(array('a' => 'b', 1 => 2, 'c' => 'd'), $object->getData());
         $this->assertSame(array('a' => 'b', 1 => 2), $data);
     }
+
+    /**
+     * Test that a warning is correctly reported, when parameters are not passed
+     *
+     * @expectedException PHPUnit_Framework_Error_Warning
+     */
+    public function testGetDataSetDefaultNoParams()
+    {
+        $object = new Varien_Object();
+        $object->getDataSetDefault();
+    }
+
+    /**
+     * Test that a warning is correctly reported, when one parameter is not passed
+     *
+     * @expectedException PHPUnit_Framework_Error_Warning
+     */
+    public function testGetDataSetDefaultNotEnoughParams()
+    {
+        $object = new Varien_Object();
+        $object->getDataSetDefault('a');
+    }
 }

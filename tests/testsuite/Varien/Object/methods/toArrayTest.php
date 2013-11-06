@@ -61,4 +61,15 @@ class Varien_Object_methods_toArrayTest extends PHPUnit_Framework_TestCase
             ->will($this->throwException(new BadMethodCallException('some exception')));
         $result = $object->toArray();
     }
+
+    /**
+     * Test that a warning is correctly reported, when a passed value is not an array
+     *
+     * @expectedException PHPUnit_Framework_Error
+     */
+    public function testToArrayWrongParam()
+    {
+        $object = new Varien_Object();
+        $object->toArray('a');
+    }
 }

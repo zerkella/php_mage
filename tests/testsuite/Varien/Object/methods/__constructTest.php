@@ -99,4 +99,12 @@ class Varien_Object_methods___constructTest extends PHPUnit_Framework_TestCase
             ),
         );
     }
+
+    /**
+     * Test, that non-array constructor param is ignored (i.e. nothing bad happens)
+     */
+    public function testConstructorWrongArgument()
+    {
+        new Varien_Object('a');
+    }
 }

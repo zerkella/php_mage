@@ -48,4 +48,15 @@ class Varien_Object_methods_getSetIdFieldNameTest extends PHPUnit_Framework_Test
         $object->setIdFieldName($value);
         $this->assertSame($value, $object->getIdFieldName());
     }
+
+    /**
+     * Test that a warning is correctly reported, when $name parameter is not passed
+     *
+     * @expectedException PHPUnit_Framework_Error_Warning
+     */
+    public function testSetIdFieldNameNoParams()
+    {
+        $object = new Varien_Object();
+        $object->setIdFieldName();
+    }
 }
