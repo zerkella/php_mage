@@ -87,6 +87,10 @@ PHP_METHOD(Varien_Object, setOrigData);
 PHP_METHOD(Varien_Object, dataHasChangedFor);
 PHP_METHOD(Varien_Object, setDataChanges);
 PHP_METHOD(Varien_Object, debug);
+PHP_METHOD(Varien_Object, offsetSet);
+PHP_METHOD(Varien_Object, offsetExists);
+PHP_METHOD(Varien_Object, offsetUnset);
+PHP_METHOD(Varien_Object, offsetGet);
 
 ZEND_BEGIN_ARG_INFO_EX(vo_getData_arg_info, 0, 0, 0)
 	ZEND_ARG_INFO(0, key)
@@ -220,6 +224,23 @@ ZEND_BEGIN_ARG_INFO_EX(vo_debug_arg_info, 0, 0, 0)
 	ZEND_ARG_INFO(0, objects)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(vo_offsetSet_arg_info, 0, 0, 2)
+	ZEND_ARG_INFO(0, offset)
+	ZEND_ARG_INFO(0, value)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(vo_offsetExists_arg_info, 0, 0, 1)
+	ZEND_ARG_INFO(0, offset)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(vo_offsetUnset_arg_info, 0, 0, 1)
+	ZEND_ARG_INFO(0, offset)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(vo_offsetGet_arg_info, 0, 0, 1)
+	ZEND_ARG_INFO(0, offset)
+ZEND_END_ARG_INFO()
+
 static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, __construct, NULL, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
 	PHP_ME(Varien_Object, _initOldFieldsMap, NULL, ZEND_ACC_PROTECTED)
@@ -262,6 +283,10 @@ static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, dataHasChangedFor, vo_dataHasChangedFor_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, setDataChanges, vo_setDataChanges_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, debug, vo_debug_arg_info, ZEND_ACC_PUBLIC)
+	PHP_ME(Varien_Object, offsetSet, vo_offsetSet_arg_info, ZEND_ACC_PUBLIC)
+	PHP_ME(Varien_Object, offsetExists, vo_offsetExists_arg_info, ZEND_ACC_PUBLIC)
+	PHP_ME(Varien_Object, offsetUnset, vo_offsetUnset_arg_info, ZEND_ACC_PUBLIC)
+	PHP_ME(Varien_Object, offsetGet, vo_offsetGet_arg_info, ZEND_ACC_PUBLIC)
 	PHP_FE_END
 };
 
@@ -301,6 +326,7 @@ int mage_varien_object_minit(TSRMLS_D)
 	/*---Class---*/
 	INIT_CLASS_ENTRY(ce, "Varien_Object", vo_methods);
 	vo_class = zend_register_internal_class(&ce TSRMLS_CC);
+	zend_class_implements(vo_class TSRMLS_CC, 1, zend_ce_arrayaccess);
 
 	/*
 	Create custom "create object" handler, because internal class declarations cannot have arrays, objects or 
@@ -1006,30 +1032,46 @@ PHP_METHOD(Varien_Object, getData)
 	RETURN_NULL();
 }
 
-/* 
-Extract variable value either as long or as string (conversion to string is done, if value is neither int, nor string). 
+/*
+Extract variable value either as long or as string (conversion to string is done, if value is not int, bool or string). 
 If extracted as long, then val_str will be NULL. 
 If val_str must be disposed after usage, then dispose_str will be TRUE.
 */
-static inline void expand_to_long_or_string(zval *z, long *val_long, char **val_str, uint *val_str_len, zend_bool *is_dispose_str TSRMLS_DC)
+static inline void expand_to_long_or_string_array_key(zval *z, long *val_long, char **val_str, uint *val_str_len, zend_bool *is_dispose_str TSRMLS_DC)
 {
 	zval *tmp;
-	if (Z_TYPE_P(z) == IS_LONG) {
-		*val_long = Z_LVAL_P(z);
-		*val_str = NULL;
-		*is_dispose_str = FALSE;
-	} else if (Z_TYPE_P(z) == IS_STRING) {
-		*val_str = Z_STRVAL_P(z);
-		*val_str_len = Z_STRLEN_P(z);
-		*is_dispose_str = FALSE;
-	} else {
-		ALLOC_ZVAL(tmp);
-		MAKE_COPY_ZVAL(&z, tmp);
-		convert_to_string(tmp);
-		*val_str = Z_STRVAL_P(tmp);
-		*val_str_len = Z_STRLEN_P(tmp);
-		FREE_ZVAL(tmp);
-		*is_dispose_str = TRUE;
+	zend_uchar type = Z_TYPE_P(z);
+
+	switch (type) {
+		case IS_LONG:
+			*val_long = Z_LVAL_P(z);
+			*val_str = NULL;
+			*is_dispose_str = FALSE;
+			break;
+		case IS_STRING:
+			*val_str = Z_STRVAL_P(z);
+			*val_str_len = Z_STRLEN_P(z);
+			*is_dispose_str = FALSE;
+			break;
+		case IS_BOOL:
+			*val_long = Z_BVAL_P(z) ? 1 : 0;
+			*val_str = NULL;
+			*is_dispose_str = FALSE;
+			break;
+		case IS_NULL:
+			*val_str = estrndup("", 1);
+			*val_str_len = 0;
+			*is_dispose_str = TRUE;
+			break;
+		default:
+			ALLOC_ZVAL(tmp);
+			MAKE_COPY_ZVAL(&z, tmp);
+			convert_to_string(tmp);
+			*val_str = Z_STRVAL_P(tmp);
+			*val_str_len = Z_STRLEN_P(tmp);
+			FREE_ZVAL(tmp);
+			*is_dispose_str = TRUE;
+			break;
 	}
 }
 
@@ -1100,7 +1142,7 @@ PHP_METHOD(Varien_Object, setData)
 			Z_ADDREF_P(value_zval);
 		}
 
-		expand_to_long_or_string(key_zval, &key_long, &key_str, &key_str_len, &is_dispose_key_str TSRMLS_CC);
+		expand_to_long_or_string_array_key(key_zval, &key_long, &key_str, &key_str_len, &is_dispose_key_str TSRMLS_CC);
 		if (key_str) {
 			zend_symtable_update(ht_data, key_str, key_str_len + 1, &value_zval, sizeof(zval *), NULL);
 		} else {
@@ -1125,7 +1167,7 @@ PHP_METHOD(Varien_Object, setData)
 			/* Put the value to the _data[sync_to_key] */
 			Z_ADDREF_P(value_zval);
 
-			expand_to_long_or_string(*sync_to_key, &sync_long, &sync_str, &sync_str_len, &is_dispose_sync_str TSRMLS_CC);
+			expand_to_long_or_string_array_key(*sync_to_key, &sync_long, &sync_str, &sync_str_len, &is_dispose_sync_str TSRMLS_CC);
 			if (sync_str) {
 				zend_symtable_update(ht_data, sync_str, sync_str_len + 1, &value_zval, sizeof(zval *), NULL);
 			} else {
@@ -1439,7 +1481,7 @@ PHP_METHOD(Varien_Object, unsetData)
 	if (key == NULL) {
 		zend_hash_clean(ht_data);
 	} else {
-		expand_to_long_or_string(key, &key_long, &key_str, &key_str_len, &is_dispose_key_str TSRMLS_CC);
+		expand_to_long_or_string_array_key(key, &key_long, &key_str, &key_str_len, &is_dispose_key_str TSRMLS_CC);
 
 		/* Unset appropriate data[$key] */
 		if (key_str) {
@@ -1462,7 +1504,7 @@ PHP_METHOD(Varien_Object, unsetData)
 		}
 
 		if (sync_found_result == SUCCESS) {
-			expand_to_long_or_string(*fullFieldName, &field_long, &field_str, &field_str_len, &is_dispose_field_str TSRMLS_CC);
+			expand_to_long_or_string_array_key(*fullFieldName, &field_long, &field_str, &field_str_len, &is_dispose_field_str TSRMLS_CC);
 			if (field_str) {
 				zend_symtable_del(ht_data, field_str, field_str_len + 1);
 			} else {
@@ -1552,7 +1594,7 @@ PHP_METHOD(Varien_Object, unsetOldData)
 			}
 		}
 	} else {
-		expand_to_long_or_string(key, &key_long, &key_str, &key_str_len, &is_dispose_key_str TSRMLS_CC);
+		expand_to_long_or_string_array_key(key, &key_long, &key_str, &key_str_len, &is_dispose_key_str TSRMLS_CC);
 
 		if (key_str) {
 			zend_symtable_del(ht_data, key_str, key_str_len + 1);
@@ -1925,7 +1967,7 @@ PHP_METHOD(Varien_Object, __toArray)
 	for (zend_hash_internal_pointer_reset(ht_arrAttributes); zend_hash_has_more_elements(ht_arrAttributes) == SUCCESS; zend_hash_move_forward(ht_arrAttributes)) {
 		/* Extract current value, i.e. name of the attribute to copy from */
 		zend_hash_get_current_data(ht_arrAttributes, (void **) &attr_name);
-		expand_to_long_or_string(*attr_name, &attr_long, &attr_str, &attr_str_len, &is_dispose_attr_str TSRMLS_CC);
+		expand_to_long_or_string_array_key(*attr_name, &attr_long, &attr_str, &attr_str_len, &is_dispose_attr_str TSRMLS_CC);
 
 		if (attr_str) {
 			found_result = zend_symtable_find(ht_data, attr_str, attr_str_len + 1, (void **) &found_zval);
@@ -2052,7 +2094,7 @@ PHP_METHOD(Varien_Object, _prepareArray)
 	for (zend_hash_internal_pointer_reset(ht_elements); zend_hash_has_more_elements(ht_elements) == SUCCESS; zend_hash_move_forward(ht_elements)) {
 		/* Extract current value, i.e. element of $arr to fill in */
 		zend_hash_get_current_data(ht_elements, (void **) &element);
-		expand_to_long_or_string(*element, &element_long, &element_str, &element_str_len, &is_dispose_element_str TSRMLS_CC);
+		expand_to_long_or_string_array_key(*element, &element_long, &element_str, &element_str_len, &is_dispose_element_str TSRMLS_CC);
 
 		if (element_str) {
 			element_exists = zend_symtable_exists(ht_arr, element_str, element_str_len + 1);
@@ -3184,7 +3226,7 @@ PHP_METHOD(Varien_Object, serialize)
 		
 		for (zend_hash_internal_pointer_reset(ht_attributes); zend_hash_has_more_elements(ht_attributes) == SUCCESS; zend_hash_move_forward(ht_attributes)) {
 			zend_hash_get_current_data(ht_attributes, (void **) &attribute);
-			expand_to_long_or_string(*attribute, &attr_long, &attr_str, &attr_str_len, &is_dispose_attr_str TSRMLS_CC);
+			expand_to_long_or_string_array_key(*attribute, &attr_long, &attr_str, &attr_str_len, &is_dispose_attr_str TSRMLS_CC);
 			if (attr_str) {
 				zend_symtable_update(ht_serialize, attr_str, attr_str_len + 1, &dummy, sizeof(int), NULL);
 			} else {
@@ -3325,7 +3367,7 @@ PHP_METHOD(Varien_Object, getOrigData)
 		php_error_docref(NULL TSRMLS_CC, E_ERROR, "_origData is not an array, while processing it at getOrigData() method");
 	}
 
-	expand_to_long_or_string(key, &key_long, &key_str, &key_str_len, &is_dispose_key_str TSRMLS_CC);
+	expand_to_long_or_string_array_key(key, &key_long, &key_str, &key_str_len, &is_dispose_key_str TSRMLS_CC);
 	if (key_str) {
 		find_result = zend_symtable_find(Z_ARRVAL_PP(origData), key_str, key_str_len + 1, (void **) &result);
 	} else {
@@ -3399,7 +3441,7 @@ PHP_METHOD(Varien_Object, setOrigData)
 			convert_to_array(*origData);
 		}
 
-		expand_to_long_or_string(key, &key_long, &key_str, &key_str_len, &is_dispose_key_str TSRMLS_CC);
+		expand_to_long_or_string_array_key(key, &key_long, &key_str, &key_str_len, &is_dispose_key_str TSRMLS_CC);
 		if (key_str) {
 			zend_symtable_update(Z_ARRVAL_PP(origData), key_str, key_str_len + 1, &data_param, sizeof(zval *), NULL);
 		} else {
@@ -3509,4 +3551,181 @@ PHP_METHOD(Varien_Object, debug)
 	*/
 
 	/* Not implemented to not waste time on a method, not needed for the concept */
+}
+
+/* public function offsetSet($offset, $value) */
+PHP_METHOD(Varien_Object, offsetSet)
+{
+	/* ---PHP---
+	$this->_data[$offset] = $value;
+	*/
+	zval *obj_zval = getThis();
+	int num_args = ZEND_NUM_ARGS();
+	zval **data;
+	zval *offset, *value;
+	long offset_long;
+	char *offset_str;
+	uint offset_str_len;
+	zend_bool is_dispose_offset_str;
+
+	if (zend_parse_parameters(num_args TSRMLS_CC, "zz", &offset, &value) == FAILURE) {
+		return;
+	}
+
+	/* Extract and check _data property */
+	VO_EXTRACT_PROPERTY(_data, obj_zval, &data);
+	if (Z_TYPE_PP(data) != IS_ARRAY) {
+		php_error_docref(NULL TSRMLS_CC, E_ERROR, "_data property must be array");
+	}
+
+	/* Set value to offset */
+	Z_ADDREF_P(value);
+	expand_to_long_or_string_array_key(offset, &offset_long, &offset_str, &offset_str_len, &is_dispose_offset_str TSRMLS_CC);
+	if (offset_str) {
+		zend_symtable_update(Z_ARRVAL_PP(data), offset_str, offset_str_len + 1, &value, sizeof(zval *), NULL);
+	} else {
+		zend_hash_index_update(Z_ARRVAL_PP(data), offset_long, &value, sizeof(zval *), NULL);
+	}
+
+	if (is_dispose_offset_str) {
+		efree(offset_str);
+	}
+}
+
+/* public function offsetExists($offset) */
+PHP_METHOD(Varien_Object, offsetExists)
+{
+	/* ---PHP---
+	return isset($this->_data[$offset]);
+	*/
+	zval *obj_zval = getThis();
+	int num_args = ZEND_NUM_ARGS();
+	zval **data;
+	zval *offset;
+	long offset_long;
+	char *offset_str;
+	uint offset_str_len;
+	zend_bool is_dispose_offset_str;
+	zval **value_pp;
+	int find_result;
+
+	if (!return_value_used) {
+		return;
+	}
+
+	if (zend_parse_parameters(num_args TSRMLS_CC, "z", &offset) == FAILURE) {
+		return;
+	}
+
+	/* Extract and check _data property */
+	VO_EXTRACT_PROPERTY(_data, obj_zval, &data);
+	if (Z_TYPE_PP(data) != IS_ARRAY) {
+		php_error_docref(NULL TSRMLS_CC, E_ERROR, "_data property must be array");
+	}
+
+	/* Set value to offset */
+	expand_to_long_or_string_array_key(offset, &offset_long, &offset_str, &offset_str_len, &is_dispose_offset_str TSRMLS_CC);
+	if (offset_str) {
+		find_result = zend_symtable_find(Z_ARRVAL_PP(data), offset_str, offset_str_len + 1, (void **) &value_pp);
+	} else {
+		find_result = zend_hash_index_find(Z_ARRVAL_PP(data), offset_long, (void **) &value_pp);
+	}
+
+	if (find_result == SUCCESS) {
+		RETVAL_BOOL(Z_TYPE_PP(value_pp) != IS_NULL);
+	} else {
+		RETVAL_FALSE;
+	}
+
+	if (is_dispose_offset_str) {
+		efree(offset_str);
+	}
+}
+
+/* public function offsetUnset($offset) */
+PHP_METHOD(Varien_Object, offsetUnset)
+{
+	/* ---PHP---
+	unset($this->_data[$offset]);
+	*/
+	zval *obj_zval = getThis();
+	int num_args = ZEND_NUM_ARGS();
+	zval **data;
+	zval *offset;
+	long offset_long;
+	char *offset_str;
+	uint offset_str_len;
+	zend_bool is_dispose_offset_str;
+
+	if (zend_parse_parameters(num_args TSRMLS_CC, "z", &offset) == FAILURE) {
+		return;
+	}
+
+	/* Extract and check _data property */
+	VO_EXTRACT_PROPERTY(_data, obj_zval, &data);
+	if (Z_TYPE_PP(data) != IS_ARRAY) {
+		php_error_docref(NULL TSRMLS_CC, E_ERROR, "_data property must be array");
+	}
+
+	/* Set value to offset */
+	expand_to_long_or_string_array_key(offset, &offset_long, &offset_str, &offset_str_len, &is_dispose_offset_str TSRMLS_CC);
+	if (offset_str) {
+		zend_symtable_del(Z_ARRVAL_PP(data), offset_str, offset_str_len + 1);
+	} else {
+		zend_hash_index_del(Z_ARRVAL_PP(data), offset_long);
+	}
+
+	if (is_dispose_offset_str) {
+		efree(offset_str);
+	}
+}
+
+/* public function offsetGet($offset) */
+PHP_METHOD(Varien_Object, offsetGet)
+{
+	/* ---PHP---
+	return isset($this->_data[$offset]);
+	*/
+	zval *obj_zval = getThis();
+	int num_args = ZEND_NUM_ARGS();
+	zval **data;
+	zval *offset;
+	long offset_long;
+	char *offset_str;
+	uint offset_str_len;
+	zend_bool is_dispose_offset_str;
+	zval **value_pp;
+	int find_result;
+
+	if (!return_value_used) {
+		return;
+	}
+
+	if (zend_parse_parameters(num_args TSRMLS_CC, "z", &offset) == FAILURE) {
+		return;
+	}
+
+	/* Extract and check _data property */
+	VO_EXTRACT_PROPERTY(_data, obj_zval, &data);
+	if (Z_TYPE_PP(data) != IS_ARRAY) {
+		php_error_docref(NULL TSRMLS_CC, E_ERROR, "_data property must be array");
+	}
+
+	/* Set value to offset */
+	expand_to_long_or_string_array_key(offset, &offset_long, &offset_str, &offset_str_len, &is_dispose_offset_str TSRMLS_CC);
+	if (offset_str) {
+		find_result = zend_symtable_find(Z_ARRVAL_PP(data), offset_str, offset_str_len + 1, (void **) &value_pp);
+	} else {
+		find_result = zend_hash_index_find(Z_ARRVAL_PP(data), offset_long, (void **) &value_pp);
+	}
+
+	if (find_result == SUCCESS) {
+		MAKE_COPY_ZVAL(value_pp, return_value);
+	} else {
+		RETVAL_NULL();
+	}
+
+	if (is_dispose_offset_str) {
+		efree(offset_str);
+	}
 }
