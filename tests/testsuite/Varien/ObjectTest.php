@@ -69,6 +69,7 @@ class Varien_ObjectTest extends PHPUnit_Framework_TestCase
             array('offsetExists', array('public')),
             array('offsetUnset', array('public')),
             array('offsetGet', array('public')),
+            array('isDirty', array('public')),
         );
     }
 
@@ -108,6 +109,7 @@ class Varien_ObjectTest extends PHPUnit_Framework_TestCase
             array('_isDeleted', array('protected'), false),
             array('_oldFieldsMap', array('protected'), array()),
             array('_syncFieldsMap', array('protected'), array()),
+            array('_dirty', array('protected'), array()),
         );
     }
 

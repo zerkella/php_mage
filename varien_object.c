@@ -42,6 +42,7 @@ static vo_property_declaration_entry_t vo_property_declarations[] = {
 	VO_DECLARE_PROP_BOOL(_isDeleted, FALSE),
 	VO_DECLARE_PROP_ARRAY(_oldFieldsMap, 0),
 	VO_DECLARE_PROP_ARRAY(_syncFieldsMap, 0),
+	VO_DECLARE_PROP_ARRAY(_dirty, 0),
 	VO_DECLARE_PROP_END
 };
 
@@ -91,6 +92,7 @@ PHP_METHOD(Varien_Object, offsetSet);
 PHP_METHOD(Varien_Object, offsetExists);
 PHP_METHOD(Varien_Object, offsetUnset);
 PHP_METHOD(Varien_Object, offsetGet);
+PHP_METHOD(Varien_Object, isDirty);
 
 ZEND_BEGIN_ARG_INFO_EX(vo_getData_arg_info, 0, 0, 0)
 	ZEND_ARG_INFO(0, key)
@@ -241,6 +243,10 @@ ZEND_BEGIN_ARG_INFO_EX(vo_offsetGet_arg_info, 0, 0, 1)
 	ZEND_ARG_INFO(0, offset)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(vo_isDirty_arg_info, 0, 0, 0)
+	ZEND_ARG_INFO(0, field)
+ZEND_END_ARG_INFO()
+
 static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, __construct, NULL, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
 	PHP_ME(Varien_Object, _initOldFieldsMap, NULL, ZEND_ACC_PROTECTED)
@@ -287,6 +293,7 @@ static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, offsetExists, vo_offsetExists_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, offsetUnset, vo_offsetUnset_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, offsetGet, vo_offsetGet_arg_info, ZEND_ACC_PUBLIC)
+	PHP_ME(Varien_Object, isDirty, vo_isDirty_arg_info, ZEND_ACC_PUBLIC)
 	PHP_FE_END
 };
 
@@ -295,7 +302,7 @@ static zend_class_entry *vo_class;
 static int vo_def_props_num;
 static vo_property_info_t *vo_data_property_info, *vo_isDeleted_property_info, *vo_idFieldName_property_info, 
 	*vo_syncFieldsMap_property_info, *vo_oldFieldsMap_property_info, *vo_hasDataChanges_property_info,
-	*vo_origData_property_info;
+	*vo_origData_property_info, *vo_dirty_property_info;
 
 /* Forward declarations */
 static zend_object_value vo_create_handler(zend_class_entry *class_type TSRMLS_DC);
@@ -371,6 +378,7 @@ int mage_varien_object_minit(TSRMLS_D)
 	vo_oldFieldsMap_property_info = get_protected_property_info("_oldFieldsMap", sizeof("_oldFieldsMap") - 1, TRUE);
 	vo_hasDataChanges_property_info = get_protected_property_info("_hasDataChanges", sizeof("_hasDataChanges") - 1, TRUE);
 	vo_origData_property_info = get_protected_property_info("_origData", sizeof("_origData") - 1, TRUE);
+	vo_dirty_property_info = get_protected_property_info("_dirty", sizeof("_dirty") - 1, TRUE);
 
 	return SUCCESS;
 }
@@ -3727,5 +3735,72 @@ PHP_METHOD(Varien_Object, offsetGet)
 
 	if (is_dispose_offset_str) {
 		efree(offset_str);
+	}
+}
+
+/* public function isDirty($field=null) */
+PHP_METHOD(Varien_Object, isDirty)
+{
+	/* ---PHP---
+	if (empty($this->_dirty)) {
+		return false;
+	}
+	if (is_null($field)) {
+		return true;
+	}
+	return isset($this->_dirty[$field]);
+	*/
+	zval *obj_zval = getThis();
+	int num_args = ZEND_NUM_ARGS();
+	zval **dirty_pp;
+	HashTable *htDirty;
+	zval *field;
+	long field_long;
+	char *field_str;
+	uint field_str_len;
+	zend_bool is_dispose_field_str;
+	zval **value_pp;
+	int find_result;
+
+	if (!return_value_used) {
+		return;
+	}
+
+	VO_EXTRACT_PROPERTY(_dirty, obj_zval, &dirty_pp);
+	if (Z_TYPE_PP(dirty_pp) != IS_ARRAY) {
+		php_error_docref(NULL TSRMLS_CC, E_ERROR, "_dirty property must be array");
+	}
+	htDirty = Z_ARRVAL_PP(dirty_pp);
+
+	if (!zend_hash_num_elements(htDirty)) {
+		RETURN_FALSE;
+	}
+
+	if (num_args) {
+		if (zend_parse_parameters(num_args TSRMLS_CC, "z!", &field) == FAILURE) {
+			return;
+		}
+	} else {
+		field = NULL;
+	}
+
+	if (!field) {
+		RETURN_TRUE;
+	}
+
+	expand_to_long_or_string_array_key(field, &field_long, &field_str, &field_str_len, &is_dispose_field_str TSRMLS_CC);
+	if (field_str) {
+		find_result = zend_symtable_find(htDirty, field_str, field_str_len + 1, (void **) &value_pp);
+	} else {
+		find_result = zend_hash_index_find(htDirty, field_long, (void **) &value_pp);
+	}
+	if (is_dispose_field_str) {
+		efree(field_str);
+	}
+
+	if ((find_result == SUCCESS) && (Z_TYPE_PP(value_pp) != IS_NULL)) {
+		RETURN_TRUE;
+	} else {
+		RETURN_FALSE;
 	}
 }
