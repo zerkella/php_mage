@@ -93,6 +93,7 @@ PHP_METHOD(Varien_Object, offsetExists);
 PHP_METHOD(Varien_Object, offsetUnset);
 PHP_METHOD(Varien_Object, offsetGet);
 PHP_METHOD(Varien_Object, isDirty);
+PHP_METHOD(Varien_Object, flagDirty);
 
 ZEND_BEGIN_ARG_INFO_EX(vo_getData_arg_info, 0, 0, 0)
 	ZEND_ARG_INFO(0, key)
@@ -247,6 +248,11 @@ ZEND_BEGIN_ARG_INFO_EX(vo_isDirty_arg_info, 0, 0, 0)
 	ZEND_ARG_INFO(0, field)
 ZEND_END_ARG_INFO()
 
+ZEND_BEGIN_ARG_INFO_EX(vo_flagDirty_arg_info, 0, 0, 1)
+	ZEND_ARG_INFO(0, field)
+	ZEND_ARG_INFO(0, flag)
+ZEND_END_ARG_INFO()
+
 static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, __construct, NULL, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
 	PHP_ME(Varien_Object, _initOldFieldsMap, NULL, ZEND_ACC_PROTECTED)
@@ -294,6 +300,7 @@ static const zend_function_entry vo_methods[] = {
 	PHP_ME(Varien_Object, offsetUnset, vo_offsetUnset_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, offsetGet, vo_offsetGet_arg_info, ZEND_ACC_PUBLIC)
 	PHP_ME(Varien_Object, isDirty, vo_isDirty_arg_info, ZEND_ACC_PUBLIC)
+	PHP_ME(Varien_Object, flagDirty, vo_flagDirty_arg_info, ZEND_ACC_PUBLIC)
 	PHP_FE_END
 };
 
@@ -3802,5 +3809,120 @@ PHP_METHOD(Varien_Object, isDirty)
 		RETURN_TRUE;
 	} else {
 		RETURN_FALSE;
+	}
+}
+
+/* public function flagDirty($field, $flag=true) */
+PHP_METHOD(Varien_Object, flagDirty)
+{
+	/* ---PHP---
+	if (is_null($field)) {
+		foreach ($this->getData() as $field=>$value) {
+			$this->flagDirty($field, $flag);
+		}
+	} else {
+		if ($flag) {
+			$this->_dirty[$field] = true;
+		} else {
+			unset($this->_dirty[$field]);
+		}
+	}
+	return $this;
+	*/
+	zval *obj_zval = getThis();
+	zend_class_entry *obj_ce = Z_OBJCE_P(obj_zval);
+	int num_args = ZEND_NUM_ARGS();
+	zval *field, *flag = NULL;
+	zval *flag_local = NULL;
+	zval *data = NULL;
+	HashTable *htData;
+	int now_field_type;
+	char *now_field_str;
+	uint now_field_len;
+	ulong now_field_index;
+	zval *now_field_zval;
+	zval **dirty_pp;
+	HashTable *htDirty;
+	long field_long;
+	char *field_str;
+	uint field_str_len;
+	zend_bool is_dispose_field_str;
+	zval *value_true;
+
+	if (zend_parse_parameters(num_args TSRMLS_CC, "z!|z", &field, &flag) == FAILURE) {
+		return;
+	}
+
+	if (!flag) {
+		ALLOC_INIT_ZVAL(flag_local);
+		ZVAL_TRUE(flag_local);
+		flag = flag_local;
+	}
+	#define FREE_RESOURCES() {if (flag_local) {zval_ptr_dtor(&flag_local); flag_local = NULL;}}
+
+	if (!field) {
+		zend_call_method_with_0_params(&obj_zval, obj_ce, NULL, "getdata", &data);
+		if (!data) {
+			FREE_RESOURCES();
+			RETURN_FALSE;
+		}
+		if (Z_TYPE_P(data) != IS_ARRAY) {
+			php_error_docref(NULL TSRMLS_CC, E_ERROR, "_data property must be array");
+		}
+		htData = Z_ARRVAL_P(data);
+
+		ALLOC_INIT_ZVAL(now_field_zval);
+		for (zend_hash_internal_pointer_reset(htData); zend_hash_has_more_elements(htData) == SUCCESS; zend_hash_move_forward(htData)) {
+			now_field_type = zend_hash_get_current_key_ex(htData, &now_field_str, &now_field_len, &now_field_index, FALSE, NULL);
+			if (now_field_type == HASH_KEY_IS_LONG) {
+				ZVAL_LONG(now_field_zval, now_field_index); 
+			} else {
+				ZVAL_STRINGL(now_field_zval, now_field_str, now_field_len - 1, TRUE); 
+			}
+
+			zend_call_method_with_2_params(&obj_zval, obj_ce, NULL, "flagdirty", NULL, now_field_zval, flag);
+		}
+		zval_ptr_dtor(&now_field_zval);
+
+	} else {
+		VO_EXTRACT_PROPERTY(_dirty, obj_zval, &dirty_pp);
+		if (Z_TYPE_PP(dirty_pp) != IS_ARRAY) {
+			php_error_docref(NULL TSRMLS_CC, E_ERROR, "_dirty property must be array");
+		}
+		htDirty = Z_ARRVAL_PP(dirty_pp);
+
+		expand_to_long_or_string_array_key(field, &field_long, &field_str, &field_str_len, &is_dispose_field_str TSRMLS_CC);
+		if (i_zend_is_true(flag)) {
+
+			ALLOC_INIT_ZVAL(value_true);
+			ZVAL_TRUE(value_true);
+
+			if (field_str) {
+				zend_symtable_update(htDirty, field_str, field_str_len + 1, &value_true, sizeof(zval *), NULL);
+			} else {
+				zend_hash_index_update(htDirty, field_long, &value_true, sizeof(zval *), NULL);
+			}
+
+		} else {
+			if (field_str) {
+				zend_symtable_del(htDirty, field_str, field_str_len + 1);
+			} else {
+				zend_hash_index_del(htDirty, field_long);
+			}
+		}
+
+		if (is_dispose_field_str) {
+			efree(field_str);
+		}
+	}
+
+	FREE_RESOURCES();
+
+	/*
+	--PHP---
+	return $this;
+	*/
+	if (return_value_used) {
+		MAKE_COPY_ZVAL(&obj_zval, return_value);
 	}
 }

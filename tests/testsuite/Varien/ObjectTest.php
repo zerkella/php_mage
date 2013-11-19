@@ -70,6 +70,7 @@ class Varien_ObjectTest extends PHPUnit_Framework_TestCase
             array('offsetUnset', array('public')),
             array('offsetGet', array('public')),
             array('isDirty', array('public')),
+            array('flagDirty', array('public')),
         );
     }
 
