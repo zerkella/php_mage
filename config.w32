@@ -1,0 +1,5 @@
+ARG_ENABLE("mage", "enable mage", "no", "-Iext/mage");
+
+if (PHP_MAGE != "no") {
+  EXTENSION("mage", "php_mage.c varien_object.c");
+}
