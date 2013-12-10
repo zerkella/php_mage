@@ -4,7 +4,6 @@
 #include "ext/standard/php_smart_str.h"
 #include "ext/standard/php_string.h"
 #include "varien_object.h"
-#include "temp.h"
 #include <stdio.h>
 
 #define INTERNAL_ARR_DEF -97623086 /* Default value for array properties, so we know when it was redeclared in subclass */
