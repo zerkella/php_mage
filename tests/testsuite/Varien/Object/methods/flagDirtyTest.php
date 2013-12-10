@@ -10,10 +10,20 @@ class Varien_Object_methods_flagDirtyTest extends PHPUnit_Framework_TestCase
      */
     public function testFlagDirty(array $data, array $dirty, array $params, array $expectedDirty)
     {
-        $property = new ReflectionProperty('Varien_Object', '_dirty');
+        /**
+         * There is a bug in Magento 1 - _dirty is absent, so flagDirty is not usable. Fix the bug with custom
+         * descendant. Not so much sense, though, because 'dirty' functionality is not used anymore.
+         */
+        $refClass = new ReflectionClass('Varien_Object');
+        $classUsed = $refClass->hasProperty('_dirty') ?
+            'Varien_Object'
+            : 'Zerkella_PhpMage_Varien_Object_Descendant_BugFix_DirtyProperty';
+
+        // Proceed with testing
+        $property = new ReflectionProperty($classUsed, '_dirty');
         $property->setAccessible(true);
 
-        $object = new Varien_Object($data);
+        $object = new $classUsed($data);
         $property->setValue($object, $dirty);
 
         $result = call_user_func_array(array($object, 'flagDirty'), $params);
@@ -145,7 +155,7 @@ class Varien_Object_methods_flagDirtyTest extends PHPUnit_Framework_TestCase
     public function testFlagDirtyNoParams()
     {
         $object = new Varien_Object();
-        $result = $object->flagDirty();
+        $object->flagDirty();
     }
 
     /**

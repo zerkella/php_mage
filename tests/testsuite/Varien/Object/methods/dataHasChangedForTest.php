@@ -60,12 +60,6 @@ class Varien_Object_methods_dataHasChangedForTest extends PHPUnit_Framework_Test
                 null,
                 true,
             ),
-            'not changed, whole data comparison' => array(
-                array('a' => 12, 'b' => 22),
-                array('a' => 12, 'b' => 22),
-                null,
-                false,
-            ),
         );
     }
 
@@ -75,7 +69,7 @@ class Varien_Object_methods_dataHasChangedForTest extends PHPUnit_Framework_Test
     public function testDataHasChangedForWithoutReturnValue()
     {
         $object = new Varien_Object();
-        $object->dataHasChangedFor();
+        $object->dataHasChangedFor('a');
     }
 
     /**
@@ -94,4 +88,14 @@ class Varien_Object_methods_dataHasChangedForTest extends PHPUnit_Framework_Test
         $result = $object->dataHasChangedFor('a');
     }
 
+    /**
+     * Test that a warning is correctly reported, when no parameters are passed
+     *
+     * @expectedException PHPUnit_Framework_Error_Warning
+     */
+    public function testDataHasChangedForNoParams()
+    {
+        $object = new Varien_Object();
+        $result = $object->dataHasChangedFor();
+    }
 }

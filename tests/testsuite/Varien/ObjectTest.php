@@ -106,11 +106,11 @@ class Varien_ObjectTest extends PHPUnit_Framework_TestCase
             array('_hasDataChanges', array('protected'), false),
             array('_origData', array('protected'), null),
             array('_idFieldName', array('protected'), null),
-            array('_underscoreCache', array('protected'), array()),
+            array('_underscoreCache', array('protected', 'static'), array()),
             array('_isDeleted', array('protected'), false),
             array('_oldFieldsMap', array('protected'), array()),
             array('_syncFieldsMap', array('protected'), array()),
-            array('_dirty', array('protected'), array()),
+            // _dirty is absent, because it is not declared in Magento PHP
         );
     }
 

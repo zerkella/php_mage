@@ -7,7 +7,7 @@ class Zerkella_PhpMage_Varien_Object_Descendant_Properties extends Varien_Object
 
     protected $_idFieldName = 'some_id';
 
-    protected $_underscoreCache = 123;
+    protected static $_underscoreCache = 123;
 
     public $_oldFieldsMap = array(4, 5, 6); // Intentional access escalation
 

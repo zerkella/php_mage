@@ -76,12 +76,26 @@ class Varien_Object_methods_getDataSetDefaultTest extends PHPUnit_Framework_Test
                 4,
                 array('a' => 'b', 1 => 2, 3 => 4),
             ),
-            'key conversion to string' => array(
+            'key (null) conversion to string' => array(
                 array('a' => 'b', 1 => 2),
-                new SplFileInfo('c'),
+                null,
                 'd',
                 'd',
-                array('a' => 'b', 1 => 2, 'c' => 'd'),
+                array('a' => 'b', 1 => 2, '' => 'd'),
+            ),
+            'key (false) conversion to string' => array(
+                array('a' => 'b', 1 => 2),
+                false,
+                'd',
+                'd',
+                array('a' => 'b', 1 => 2, 0 => 'd'),
+            ),
+            'key (true) conversion to string' => array(
+                array('a' => 'b', 1 => 2),
+                true,
+                'd',
+                2,
+                array('a' => 'b', 1 => 2),
             ),
         );
     }
@@ -104,7 +118,7 @@ class Varien_Object_methods_getDataSetDefaultTest extends PHPUnit_Framework_Test
     public function testGetDataSetDefaultNoParams()
     {
         $object = new Varien_Object();
-        $object->getDataSetDefault();
+        $result = $object->getDataSetDefault();
     }
 
     /**
@@ -115,6 +129,16 @@ class Varien_Object_methods_getDataSetDefaultTest extends PHPUnit_Framework_Test
     public function testGetDataSetDefaultNotEnoughParams()
     {
         $object = new Varien_Object();
-        $object->getDataSetDefault('a');
+        $result = $object->getDataSetDefault('a');
+    }
+
+    /**
+     * @expectedException PHPUnit_Framework_Error_Warning
+     */
+    public function testtGetDataSetDefaultNonScalarAttribute()
+    {
+        $key = new SplFileInfo('a');
+        $object = new Varien_Object(array('a' => 'b'));
+        $result = $object->getDataSetDefault($key, 'c');
     }
 }

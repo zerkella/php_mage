@@ -144,6 +144,21 @@ class Varien_Object_methods_getDataTest extends PHPUnit_Framework_TestCase
                 array(3),
                 4
             ),
+            'get data by null key' => array(
+                array('' => 'a'),
+                array(null),
+                'a'
+            ),
+            'get data by false key' => array(
+                array(0 => 'a'),
+                array(false),
+                'a'
+            ),
+            'get data by true key' => array(
+                array(1 => 'a'),
+                array(true),
+                'a'
+            ),
             'get data by with null param for index' => array(
                 array(
                     'one' => 1,

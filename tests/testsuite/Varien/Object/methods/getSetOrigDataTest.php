@@ -61,6 +61,11 @@ class Varien_Object_methods_getSetOrigDataTest extends PHPUnit_Framework_TestCas
                 array('2'),
                 $testObject,
             ),
+            'set by empty string key, get by empty string key' => array(
+                array('', $testObject),
+                array(''),
+                $testObject,
+            ),
             'retrive non-existing key' => array(
                 array('a', $testObject),
                 array('b'),
@@ -76,6 +81,31 @@ class Varien_Object_methods_getSetOrigDataTest extends PHPUnit_Framework_TestCas
 
         $object->setOrigData();
         $actualData = $object->getOrigData();
+        $this->assertSame($data, $actualData);
+    }
+
+    public function testSetOrigDataByNull()
+    {
+        $testObject = new StdClass;
+        $data = array('a' => $testObject);
+        $object = new Varien_Object($data);
+
+        $object->setOrigData(null);
+
+        $actualData = $object->getOrigData();
+        $this->assertSame($data, $actualData);
+
+        $actualValue = $object->getOrigData('a');
+        $this->assertSame($testObject, $actualValue);
+    }
+
+    public function testGetOrigDataByNull()
+    {
+        $data = array('a' => new StdClass);
+        $object = new Varien_Object($data);
+
+        $object->setOrigData(null);
+        $actualData = $object->getOrigData(null);
         $this->assertSame($data, $actualData);
     }
 

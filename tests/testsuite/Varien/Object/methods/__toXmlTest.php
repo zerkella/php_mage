@@ -92,37 +92,37 @@ class Varien_Object_methods___toXmlTest extends PHPUnit_Framework_TestCase
             ),
             'string field, string value' => array(
                 'data' => array('a' => 'b'),
-                'expectedResult' => "<a>b</a>\n",
+                'expectedResult' => "<a><![CDATA[b]]></a>\n",
                 'arrAttributes' => array('a'),
                 'rootName' => null,
             ),
             'string field, object value' => array(
                 'data' => array('a' => new SplFileInfo('b')),
-                'expectedResult' => "<a>b</a>\n",
+                'expectedResult' => "<a><![CDATA[b]]></a>\n",
                 'arrAttributes' => array('a'),
                 'rootName' => null,
             ),
             'int field, int value' => array(
                 'data' => array(1 => 2),
-                'expectedResult' => "<1>2</1>\n",
+                'expectedResult' => "<1><![CDATA[2]]></1>\n",
                 'arrAttributes' => array(1),
                 'rootName' => null,
             ),
             'attribute filter' => array(
                 'data' => array('a' => 'b', 1 => 2, 'c' => 'd', 3 => 4),
-                'expectedResult' => "<3>4</3>\n<a>b</a>\n",
+                'expectedResult' => "<3><![CDATA[4]]></3>\n<a><![CDATA[b]]></a>\n",
                 'arrAttributes' => array('3', 'a'),
                 'rootName' => null,
             ),
             'attribute empty filter must render everything' => array(
                 'data' => array('a' => 'b', 1 => 2),
-                'expectedResult' => "<a>b</a>\n<1>2</1>\n",
+                'expectedResult' => "<a><![CDATA[b]]></a>\n<1><![CDATA[2]]></1>\n",
                 'arrAttributes' => array(),
                 'rootName' => null,
             ),
             'attribute filter with non-existing values' => array(
                 'data' => array(),
-                'expectedResult' => "<a></a>\n<1></1>\n",
+                'expectedResult' => "<a><![CDATA[]]></a>\n<1><![CDATA[]]></1>\n",
                 'arrAttributes' => array('a', 1),
                 'rootName' => null,
             ),
@@ -134,6 +134,14 @@ class Varien_Object_methods___toXmlTest extends PHPUnit_Framework_TestCase
                 'addOpenTag' => false,
                 'addCdata' => true,
             ),
+            'cdata not used' => array(
+                'data' => array('a' => 'b'),
+                'expectedResult' => "<a>b</a>\n",
+                'arrAttributes' => array('a'),
+                'rootName' => null,
+                'addOpenTag' => false,
+                'addCdata' => false,
+            ),
             'cdata not with non-bool true value' => array(
                 'data' => array('a' => 'b'),
                 'expectedResult' => "<a>b</a>\n",
@@ -142,21 +150,29 @@ class Varien_Object_methods___toXmlTest extends PHPUnit_Framework_TestCase
                 'addOpenTag' => false,
                 'addCdata' => 1,
             ),
-            'html entities' => array(
+            'html entities with cdata' => array(
+                'data' => array('a' => '-&-"-\'-<->-'),
+                'expectedResult' => "<a><![CDATA[-&-\"-'-<->-]]></a>\n",
+                'arrAttributes' => array('a'),
+                'rootName' => null,
+            ),
+            'html entities without cdata' => array(
                 'data' => array('a' => '-&-"-\'-<->-'),
                 'expectedResult' => "<a>-&amp;-&quot;-&apos;-&lt;-&gt;-</a>\n",
                 'arrAttributes' => array('a'),
                 'rootName' => null,
+                'addOpenTag' => false,
+                'addCdata' => false,
             ),
             'default values' => array(
                 'data' => array('a' => 'b', 1 => 2),
-                'expectedResult' => "<item>\n<a>b</a>\n<1>2</1>\n</item>\n",
+                'expectedResult' => "<item>\n<a><![CDATA[b]]></a>\n<1><![CDATA[2]]></1>\n</item>\n",
             ),
             'xml-snippet' => array(
                 'data' => array('price' => 0.99, 'name' => 'M&Ms', 'description' => 'none'),
                 'expectedResult' => '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
                     . "<product>\n"
-                    . "<name><![CDATA[M&amp;Ms]]></name>\n"
+                    . "<name><![CDATA[M&Ms]]></name>\n"
                     . "<price><![CDATA[0.99]]></price>\n"
                     . "<sku><![CDATA[]]></sku>\n"
                     . "</product>\n",

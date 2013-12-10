@@ -6,10 +6,19 @@ class Varien_Object_methods__addFullNamesTest extends PHPUnit_Framework_TestCase
      * @param array $expected
      * @dataProvider addFullNamesDataProvider
      */
-    public function testAddFullNames($data, $expected)
+    public function testAddFullNames(array $data, array $expected)
     {
         $object = new Zerkella_PhpMage_Varien_Object_Descendant_AddFullNames($data);
         $actual = $object->getData();
+
+        /**
+         * Order of elements differ in Varien_Object PHP implementation and C implementation,
+         * however for Magento it doesn't make any difference. So make test order-insensitive
+         */
+        ksort($expected);
+        if (is_array($actual)) {
+            ksort($actual);
+        }
         $this->assertSame($expected, $actual);
     }
 
@@ -22,7 +31,6 @@ class Varien_Object_methods__addFullNamesTest extends PHPUnit_Framework_TestCase
             'old_property1' => 'old',
             'new_property2' => 'new',
             'some_property' => 'some_value',
-            111 => 99,
         );
 
         $dataWithReferences = $data;
@@ -40,10 +48,8 @@ class Varien_Object_methods__addFullNamesTest extends PHPUnit_Framework_TestCase
                     'old_property1' => 'old',
                     'new_property2' => 'new',
                     'some_property' => 'some_value',
-                    111 => 99,
-                    'new_property1' => 'old',
-                    333 => 99,
                     'old_property2' => 'new',
+                    'new_property1' => 'old',
                 ),
             ),
             'data with references' => array(
@@ -52,10 +58,8 @@ class Varien_Object_methods__addFullNamesTest extends PHPUnit_Framework_TestCase
                     'old_property1' => 'some_value',
                     'new_property2' => 'new',
                     'some_property' => 'some_value',
-                    111 => 99,
-                    'new_property1' => 'some_value',
-                    333 => 99,
                     'old_property2' => 'new',
+                    'new_property1' => 'some_value',
                 ),
             ),
             'data referenced' => array(
@@ -64,10 +68,8 @@ class Varien_Object_methods__addFullNamesTest extends PHPUnit_Framework_TestCase
                     'old_property1' => 'old',
                     'new_property2' => 'new',
                     'some_property' => 'old',
-                    111 => 99,
-                    'new_property1' => 'old',
-                    333 => 99,
                     'old_property2' => 'new',
+                    'new_property1' => 'old',
                 ),
             ),
             'data with object' => array(
@@ -82,32 +84,44 @@ class Varien_Object_methods__addFullNamesTest extends PHPUnit_Framework_TestCase
         );
     }
 
+    /**
+     * Test for a case, when there are numbered old fields.
+     * This use case is never used in Magento (moreover - it has bugs there), so the test just ensures, that
+     * no exceptions or segfaults occur because of such call
+     */
+    public function testAddFullNamesWithNumbers()
+    {
+        $data = array(
+            'old_property1' => 'old',
+            'new_property2' => 'new',
+            'some_property' => 'some_value',
+            111 => 99,
+        );
+        $object = new Zerkella_PhpMage_Varien_Object_Descendant_AddFullNamesWithNumbers($data);
+    }
+
     public function testAddFullNamesWithReferenceChanges()
     {
         $oldProperty = 'a';
-        $oldNumProperty = 1;
-        $data = array('old_property1' => &$oldProperty, 111 => &$oldNumProperty);
+        $data = array('old_property1' => &$oldProperty);
         $object = new Zerkella_PhpMage_Varien_Object_Descendant_AddFullNames($data);
 
-        // Change referenced values
+        // Change referenced value
         $oldProperty = 'b';
-        $oldNumProperty = 2;
 
         // Verify, that referenced values (and only them) have changed inside the object
         $actual = $object->getData();
         $expected = array(
             'old_property1' => 'b',
             'new_property1' => 'a',
-            111 => 2,
-            333 => 1,
         );
         $this->assertEquals($expected, $actual);
     }
 
     public function testAddFullNamesNotLinkedToInitialData()
     {
-        $data = array('old_property1' => 'old_property1_value', 111 => '111_value');
+        $data = array('old_property1' => 'old_property1_value');
         new Zerkella_PhpMage_Varien_Object_Descendant_AddFullNames($data);
-        $this->assertEquals(array('old_property1' => 'old_property1_value', 111 => '111_value'), $data);
+        $this->assertEquals(array('old_property1' => 'old_property1_value'), $data);
     }
 }

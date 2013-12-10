@@ -34,14 +34,55 @@ class Varien_Object_methods_setDataTest extends PHPUnit_Framework_TestCase
             ),
             'dynamic old fields map' => array(
                 'Zerkella_PhpMage_Varien_Object_Descendant_OldFieldsMap_Dynamic',
-                array('a' => 'a_value', 222 => '222_value', 'just_a_key' => 'just_a_value'),
-                array('a' => 'a_value', 'b' => 'a_value', 222 => '222_value', 111 => '222_value',
+                array('a' => 'a_value', 'd' => 'd_value', 'just_a_key' => 'just_a_value'),
+                array('a' => 'a_value', 'b' => 'a_value', 'd' => 'd_value', 'c' => 'd_value',
                     'just_a_key' => 'just_a_value'),
             ),
             'static old fields map' => array(
                 'Zerkella_PhpMage_Varien_Object_Descendant_OldFieldsMap_Static',
+                array('h' => 'h_value', 'e' => 'e_value', 'just_a_key' => 'just_a_value'),
+                array('h' => 'h_value', 'g' => 'h_value', 'e' => 'e_value', 'f' => 'e_value',
+                    'just_a_key' => 'just_a_value'),
+            ),
+        );
+    }
+
+    /**
+     * Test for a case, when there are numbered old fields.
+     * This use case is never used in Magento (moreover - it has bugs there), so the test just ensures, that
+     * no exceptions or segfaults occur because of such call
+     *
+     * @param string $class
+     * @param array $data
+     * @dataProvider setDataSingleArgumentWithNumbersDataProvider
+     */
+    public function testSetDataWithNumbersSingleArgument($class, $data)
+    {
+        $object = new $class();
+        $result = $object->setData($data);
+    }
+
+    /**
+     * @return array
+     */
+    public static function setDataSingleArgumentWithNumbersDataProvider()
+    {
+        return array(
+            'ordinary set data' => array (
+                'Varien_Object',
+                array('a' => 'b', 1 => 2),
+                array('a' => 'b', 1 => 2),
+            ),
+            'dynamic old fields map' => array(
+                'Zerkella_PhpMage_Varien_Object_Descendant_OldFieldsMap_DynamicWithNumbers',
+                array('a' => 'a_value', 222 => '222_value', 'just_a_key' => 'just_a_value'),
+                array('a' => 'a_value', 'b' => 'a_value', 222 => '222_value', 0 => '222_value',
+                    'just_a_key' => 'just_a_value'),
+            ),
+            'static old fields map' => array(
+                'Zerkella_PhpMage_Varien_Object_Descendant_OldFieldsMap_StaticWithNumbers',
                 array('h' => 'h_value', 333 => '333_value', 'just_a_key' => 'just_a_value'),
-                array('h' => 'h_value', 'g' => 'h_value', 333 => '333_value', 444 => '333_value',
+                array('h' => 'h_value', 'g' => 'h_value', 333 => '333_value', 1 => '333_value',
                     'just_a_key' => 'just_a_value'),
             ),
         );
@@ -99,6 +140,9 @@ class Varien_Object_methods_setDataTest extends PHPUnit_Framework_TestCase
         }
     }
 
+    /**
+     * @return array
+     */
     public static function setDataDataProvider()
     {
         return array(
@@ -126,29 +170,78 @@ class Varien_Object_methods_setDataTest extends PHPUnit_Framework_TestCase
                 'value',
                 array('' => 'value')
             ),
-            'object key' => array(
-                'Varien_Object',
-                new SplFileInfo('key'),
-                'value',
-                array('key' => 'value')
-            ),
-            'sync with integer key' => array(
-                'Zerkella_PhpMage_Varien_Object_Descendant_AddFullNames',
-                111,
-                'value',
-                array(111 => 'value', 333 => 'value')
-            ),
-            'sync with string integer key' => array(
-                'Zerkella_PhpMage_Varien_Object_Descendant_AddFullNames',
-                '111',
-                'value',
-                array(111 => 'value', 333 => 'value')
-            ),
             'sync with string key' => array(
                 'Zerkella_PhpMage_Varien_Object_Descendant_AddFullNames',
                 'new_property2',
                 'value',
                 array('new_property2' => 'value', 'old_property2' => 'value')
+            ),
+        );
+    }
+
+    /**
+     * Test for a case, when there are numbered old fields.
+     * This use case is never used in Magento (moreover - it has bugs there), so the test just ensures, that
+     * no exceptions or segfaults occur because of such call
+     *
+     * @param mixed $key
+     * @param mixed $value
+     * @dataProvider setDataWithNumbersDataProvider
+     */
+    public function testSetDataWithNumbers($key, $value)
+    {
+        $origKey = is_object($key) ? clone $key : unserialize(serialize($key)); // Just to break any references to key
+
+        $object = new Zerkella_PhpMage_Varien_Object_Descendant_AddFullNamesWithNumbers();
+        $object->setData($key, $value);
+
+        // Key value must not change, even when converted to string
+        if (is_object($origKey)) {
+            $this->assertInternalType('object', $key, 'Key object must not be converted');
+            $this->assertEquals($origKey, $key, 'Key data must stay the same for object');
+        } else {
+            $this->assertSame($origKey, $key, 'Key data must stay the same');
+        }
+    }
+
+    /**
+     * @return array
+     */
+    public static function setDataWithNumbersDataProvider()
+    {
+        // The numbers in old fields are buggy, logic not defined well and may depend on implementation
+        return array(
+            'sync with 111 integer key possibly existing' => array(
+                111,
+                'value',
+            ),
+            'sync with 111 string integer possibly key' => array(
+                '111',
+                'value',
+            ),
+            'sync with 0 integer key possibly existing' => array(
+                0,
+                'value',
+            ),
+            'sync with 0 string integer key possibly existing' => array(
+                '0',
+                'value',
+            ),
+            'sync with 1 integer key possibly existing' => array(
+                1,
+                'value',
+            ),
+            'sync with 1 string integer key possibly existing' => array(
+                '1',
+                'value',
+            ),
+            'sync with 333 integer key possibly existing' => array(
+                333,
+                'value',
+            ),
+            'sync with 333 string integer key possibly existing' => array(
+                '333',
+                'value',
             ),
         );
     }
@@ -218,5 +311,15 @@ class Varien_Object_methods_setDataTest extends PHPUnit_Framework_TestCase
     {
         $object = new Varien_Object();
         $object->setData();
+    }
+
+    /**
+     * @expectedException PHPUnit_Framework_Error_Warning
+     */
+    public function testSetDataWithNonScalarParam()
+    {
+        $objParam = new SplFileInfo('key');
+        $object = new Varien_Object();
+        $object->setData($objParam, 'value');
     }
 }

@@ -6,6 +6,6 @@ class Zerkella_PhpMage_Varien_Object_Descendant_OldFieldsMap_Dynamic extends Var
 {
     protected function _initOldFieldsMap()
     {
-        $this->_oldFieldsMap = array('a' => 'b', 'c' => 'd', 111 => 222);
+        $this->_oldFieldsMap = array('a' => 'b', 'c' => 'd');
     }
 }

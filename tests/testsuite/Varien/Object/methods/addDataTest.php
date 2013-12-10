@@ -41,7 +41,7 @@ class Varien_Object_methods_addDataTest extends PHPUnit_Framework_TestCase
     /**
      * Test that a warning is correctly reported, when $arr parameter is not passed
      *
-     * @expectedException PHPUnit_Framework_Error_Warning
+     * @expectedException PHPUnit_Framework_Error
      */
     public function testAddDataNoParams()
     {

@@ -4,5 +4,5 @@
  */
 class Zerkella_PhpMage_Varien_Object_Descendant_OldFieldsMap_Static extends Varien_Object
 {
-    protected $_oldFieldsMap = array('e' => 'f', 'g' => 'h', 333 => 444);
+    protected $_oldFieldsMap = array('e' => 'f', 'g' => 'h');
 }

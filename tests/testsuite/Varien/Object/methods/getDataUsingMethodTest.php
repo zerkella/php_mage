@@ -145,6 +145,6 @@ class Varien_Object_methods_getDataUsingMethodTest extends PHPUnit_Framework_Tes
     public function testGetDataUsingMethodNoParams()
     {
         $object = new Varien_Object();
-        $object->getDataUsingMethod();
+        $result = $object->getDataUsingMethod();
     }
 }

@@ -5,5 +5,7 @@
     </testsuite>
     <php>
         <ini name="date.timezone" value="America/Los_Angeles"/>
+        <!-- Set path to Magento instance to run tests on Varien_Object there instead of testing PHP extension -->
+        <!--<const name="TESTS_MAGENTO_PATH" value="c:\magento"/>-->
     </php>
 </phpunit>

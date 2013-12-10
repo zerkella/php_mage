@@ -10,6 +10,14 @@ class Varien_Object_methods___callTest extends PHPUnit_Framework_TestCase
         }
     }
 
+    public function setUp()
+    {
+        // Clear caches
+        $reflectionProperty = new ReflectionProperty('Varien_Object', '_underscoreCache');
+        $reflectionProperty->setAccessible(true);
+        $reflectionProperty->setValue(array());
+    }
+
     /**
      * @param mixed $data
      * @param string $method
@@ -37,6 +45,13 @@ class Varien_Object_methods___callTest extends PHPUnit_Framework_TestCase
     public static function __callDataProvider()
     {
         return array(
+            'get with too many underscores2' => array(
+                array('a_bc_de_fg_hi_jk_lm_no_pq_rs_tu_vw_xy_z' => '$15.00'), // Non-intuitive, but that's how it works
+                'getABCDEFGHIJKLMNOPQRSTUVWXYZ',
+                array(),
+                '$15.00',
+                array('a_bc_de_fg_hi_jk_lm_no_pq_rs_tu_vw_xy_z' => '$15.00'),
+            ),
             'get' => array(
                 array('final_product_price' => '$15.00'),
                 'getFinalProductPrice',
@@ -52,11 +67,11 @@ class Varien_Object_methods___callTest extends PHPUnit_Framework_TestCase
                 array('price' => '$15.00'),
             ),
             'get with too many underscores' => array(
-                array('a_b_c_d_e_f_g_h_i_j_k_l_m_n_o_p_q_r_s_t_u_v_w_x_y_z' => '$15.00'),
+                array('a_bc_de_fg_hi_jk_lm_no_pq_rs_tu_vw_xy_z' => '$15.00'), // Non-intuitive, but that's how it works
                 'getABCDEFGHIJKLMNOPQRSTUVWXYZ',
                 array(),
                 '$15.00',
-                array('a_b_c_d_e_f_g_h_i_j_k_l_m_n_o_p_q_r_s_t_u_v_w_x_y_z' => '$15.00'),
+                array('a_bc_de_fg_hi_jk_lm_no_pq_rs_tu_vw_xy_z' => '$15.00'),
             ),
             'get with numbers' => array(
                 array('1' => '$15.00'),
@@ -66,11 +81,11 @@ class Varien_Object_methods___callTest extends PHPUnit_Framework_TestCase
                 array('1' => '$15.00'),
             ),
             'get with numbers and letters' => array(
-                array('a_b_cdef1' => '$15.00'),
-                'getABCdef1',
+                array('a_bcde1' => '$15.00'),
+                'getABcde1',
                 array(),
                 '$15.00',
-                array('a_b_cdef1' => '$15.00'),
+                array('a_bcde1' => '$15.00'),
             ),
             'get with method underscores' => array(
                 array('a__b' => '$15.00'),
@@ -92,6 +107,13 @@ class Varien_Object_methods___callTest extends PHPUnit_Framework_TestCase
                 array(),
                 array('something_new' => '$15.00'),
                 array('something_new' => '$15.00'),
+            ),
+            'get with zero' => array(
+                array('$15.00'),
+                'get0',
+                array(),
+                '$15.00',
+                array(0 => '$15.00'),
             ),
             'get with index' => array(
                 array('arr' => array('a' => 'b', 'c' => 'd')),
@@ -122,18 +144,18 @@ class Varien_Object_methods___callTest extends PHPUnit_Framework_TestCase
                 array('a' => 'b', 'final_product_price' => '$14.99'),
             ),
             'set with int existing data' => array(
-                array(0 => '$15.00'),
-                'set0',
+                array(5 => '$15.00'),
+                'set5',
                 array('$14.99'),
                 self::RESULT_SAME_OBJECT,
-                array(0 => '$14.99'),
+                array(5 => '$14.99'),
             ),
             'set with int non-existing data' => array(
                 array(),
-                'set0',
+                'set5',
                 array('$14.99'),
                 self::RESULT_SAME_OBJECT,
-                array(0 => '$14.99'),
+                array(5 => '$14.99'),
             ),
             'set with non-zero int' => array(
                 array(),
@@ -162,6 +184,13 @@ class Varien_Object_methods___callTest extends PHPUnit_Framework_TestCase
                 array('a'),
                 self::RESULT_SAME_OBJECT,
                 array('' => 'a'),
+            ),
+            'set with 0' => array(
+                array(),
+                'set0',
+                array('a'),
+                self::RESULT_SAME_OBJECT,
+                array(0 => 'a'),
             ),
             'unset with existing data' => array(
                 array('final_product_price' => '$15.00', 'a' => 'b'),

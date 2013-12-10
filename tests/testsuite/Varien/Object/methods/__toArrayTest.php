@@ -40,10 +40,20 @@ class Varien_Object_methods___toArrayTest extends PHPUnit_Framework_TestCase
                 array('1'),
                 array(1 => 2),
             ),
-            'extract converted string attribute' => array(
+            'extract converted false attribute' => array(
+                array('a' => 'b', 0 => 1),
+                array(false),
+                array(0 => 1),
+            ),
+            'extract converted true attribute' => array(
                 array('a' => 'b', 1 => 2),
-                array(new SplFileInfo('a')),
-                array('a' => 'b'),
+                array(true),
+                array(1 => 2),
+            ),
+            'extract converted null attribute' => array(
+                array('a' => 'b', '' => 'c'),
+                array(null),
+                array('' => 'c'),
             ),
             'extract non-existing attributes' => array(
                 array('a' => 'b', 1 => 2),
@@ -52,10 +62,20 @@ class Varien_Object_methods___toArrayTest extends PHPUnit_Framework_TestCase
             ),
             'big array of attributes' => array (
                 array('a' => 'b', 1 => 2, 'c' => 'd', 3 => 4, 'e' => 'f', 6 => 7),
-                array(1, 2, 'a', new SplFileInfo('e'), '6'),
+                array(1, 2, 'a', 'e', '6'),
                 array(1 => 2, 2 => null, 'a' => 'b', 'e' => 'f', 6 => 7),
             ),
         );
+    }
+
+    /**
+     * @expectedException PHPUnit_Framework_Error_Warning
+     */
+    public function test__ToArrayWithNonScalarAttribute()
+    {
+        $attributes = array(new SplFileInfo('a'));
+        $object = new Varien_Object(array('a' => 'b'));
+        $result = $object->toArray($attributes);
     }
 
     /**

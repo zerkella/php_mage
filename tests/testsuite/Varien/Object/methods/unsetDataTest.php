@@ -41,16 +41,6 @@ class Varien_Object_methods_unsetDataTest extends PHPUnit_Framework_TestCase
                 5,
                 array('a' => 'b'),
             ),
-            'converted to string key' => array(
-                array('a' => 'b', 5 => 6),
-                new SplFileInfo('a'),
-                array(5 => 6),
-            ),
-            'converted to int string key' => array(
-                array('a' => 'b', 5 => 6),
-                new SplFileInfo(5),
-                array('a' => 'b'),
-            ),
             'non-existing string key' => array(
                 array('a' => 'b', 5 => 6),
                 'c',
@@ -60,6 +50,16 @@ class Varien_Object_methods_unsetDataTest extends PHPUnit_Framework_TestCase
                 array('a' => 'b', 5 => 6),
                 3,
                 array('a' => 'b', 5 => 6),
+            ),
+            'true key' => array(
+                array(1 => 2, 3 => 4),
+                true,
+                array(3 => 4),
+            ),
+            'bool key' => array(
+                array(0 => 1, 2 => 3),
+                false,
+                array(2 => 3),
             ),
         );
     }
@@ -81,30 +81,51 @@ class Varien_Object_methods_unsetDataTest extends PHPUnit_Framework_TestCase
     public static function unsetDataWithSyncedFieldsDataProvider()
     {
         return array(
+            'new key' => array(
+                array('a' => 'a_value', 'e' => 'f'),
+                'a',
+                array('e' => 'f'),
+            ),
+            'old key' => array(
+                array('a' => 'a_value', 'e' => 'f'),
+                'b',
+                array('e' => 'f'),
+            ),
+        );
+    }
+
+    /**
+     * Test for a case, when there are numbered old fields.
+     * This use case is never used in Magento (moreover - it has bugs there), so the test just ensures, that
+     * no exceptions or segfaults occur because of such call
+     *
+     * @param array $initialData
+     * @param string|null $key
+     * @dataProvider unsetDataWithSyncedFieldsWithNumbersDataProvider
+     */
+    public function testUnsetDataWithSyncedFieldsWithNumbers($initialData, $key)
+    {
+        $object = new Zerkella_PhpMage_Varien_Object_Descendant_OldFieldsMap_DynamicWithNumbers($initialData);
+        $object->unsetData($key);
+    }
+
+    /**
+     * @return array
+     */
+    public static function unsetDataWithSyncedFieldsWithNumbersDataProvider()
+    {
+        return array(
             'string key' => array(
                 array('a' => 'a_value', 111 => '111_value'),
                 'a',
-                array(111 => '111_value', 222 => '111_value'),
             ),
             'string int key' => array(
                 array('a' => 'a_value', 111 => '111_value'),
                 '111',
-                array('a' => 'a_value', 'b' => 'a_value'),
             ),
             'int key' => array(
                 array('a' => 'a_value', 111 => '111_value'),
                 111,
-                array('a' => 'a_value', 'b' => 'a_value'),
-            ),
-            'converted to string key' => array(
-                array('a' => 'a_value', 111 => '111_value'),
-                new SplFileInfo('a'),
-                array(111 => '111_value', 222 => '111_value'),
-            ),
-            'converted to int string key' => array(
-                array('a' => 'a_value', 111 => '111_value'),
-                new SplFileInfo(111),
-                array('a' => 'a_value', 'b' => 'a_value'),
             ),
         );
     }
@@ -121,10 +142,11 @@ class Varien_Object_methods_unsetDataTest extends PHPUnit_Framework_TestCase
 
     public function testUnsetDataDoesntSpoilKeyParam()
     {
-        $key = new SplFileInfo('key');
-        $object = new Varien_Object();
-        $object->unsetData($key);
-        $this->assertInstanceOf('SplFileInfo', $key);
+        $key = true;
+        $keyRef = &$key;
+        $object = new Varien_Object(array(1 => 2));
+        $object->unsetData($keyRef);
+        $this->assertTrue($key);
     }
 
     public function testDataIsNotLinkedForUnset()
@@ -152,5 +174,15 @@ class Varien_Object_methods_unsetDataTest extends PHPUnit_Framework_TestCase
         $this->assertFalse($object->hasDataChanges());
         $object->unsetData('a');
         $this->assertTrue($object->hasDataChanges());
+    }
+
+    /**
+     * @expectedException PHPUnit_Framework_Error_Warning
+     */
+    public function testUnsetDataWithNonScalarParam()
+    {
+        $objParam = new SplFileInfo('a');
+        $object = new Varien_Object(array('a' => 'b'));
+        $object->unsetData($objParam);
     }
 }

@@ -21,50 +21,61 @@ class Varien_Object_methods_unsetOldDataTest extends PHPUnit_Framework_TestCase
     {
         return array(
             'null key' => array(
-                array('a' => 'a_value', 111 => '111_value'),
+                array('a' => 'a_value', 'e' => 'e_value'),
                 null,
-                array('b' => 'a_value', 222 => '111_value'),
+                array('e' => 'e_value'),
             ),
-            'string key' => array(
-                array('a' => 'a_value', 111 => '111_value'),
+            'key' => array(
+                array('a' => 'a_value', 'e' => 'e_value'),
                 'a',
-                array(111 => '111_value', 'b' => 'a_value', 222 => '111_value'),
-            ),
-            'string int key' => array(
-                array('a' => 'a_value', 111 => '111_value'),
-                '111',
-                array('a' => 'a_value', 'b' => 'a_value', 222 => '111_value'),
-            ),
-            'int key' => array(
-                array('a' => 'a_value', 111 => '111_value'),
-                111,
-                array('a' => 'a_value', 'b' => 'a_value', 222 => '111_value'),
-            ),
-            'converted to string key' => array(
-                array('a' => 'a_value', 111 => '111_value'),
-                new SplFileInfo('a'),
-                array(111 => '111_value', 'b' => 'a_value', 222 => '111_value'),
-            ),
-            'converted to int string key' => array(
-                array('a' => 'a_value', 111 => '111_value'),
-                new SplFileInfo(111),
-                array('a' => 'a_value', 'b' => 'a_value', 222 => '111_value'),
+                array('e' => 'e_value', 'b' => 'a_value'),
             ),
             'non-existing string key' => array(
-                array('a' => 'a_value', 111 => '111_value'),
+                array('a' => 'a_value'),
                 'c',
-                array('a' => 'a_value', 111 => '111_value', 'b' => 'a_value', 222 => '111_value'),
-            ),
-            'non-existing int key' => array(
-                array('a' => 'a_value', 111 => '111_value'),
-                3,
-                array('a' => 'a_value', 111 => '111_value', 'b' => 'a_value', 222 => '111_value'),
+                array('a' => 'a_value', 'b' => 'a_value'),
             ),
             'non-old key is unset at all - method does not differentiate old keys from new' => array(
-                array('a' => 'a_value', 111 => '111_value'),
-                'b',
-                array('a' => 'a_value', 111 => '111_value', 222 => '111_value'),
+                array('a' => 'a_value', 'e' => 'e_value'),
+                'e',
+                array('a' => 'a_value', 'b' => 'a_value'),
             )
+        );
+    }
+
+    /**
+     * Test for a case, when there are numbered old fields.
+     * This use case is never used in Magento (moreover - it has bugs there), so the test just ensures, that
+     * no exceptions or segfaults occur because of such call
+     *
+     * @param array $initialData
+     * @param string|null $key
+     * @dataProvider unsetOldDataWithNumbersDataProvider
+     */
+    public function testUnsetOldDataWithNumbers($initialData, $key)
+    {
+        $object = new Zerkella_PhpMage_Varien_Object_Descendant_OldFieldsMap_DynamicWithNumbers($initialData);
+        $result = $object->unsetOldData($key);
+    }
+
+    /**
+     * @return array
+     */
+    public static function unsetOldDataWithNumbersDataProvider()
+    {
+        return array(
+            'string int key' => array(
+                array('a' => 'a_value', 0 => '0_value'),
+                '222',
+            ),
+            'int key' => array(
+                array('a' => 'a_value', 0 => '0_value'),
+                222,
+            ),
+            'non-existing int key' => array(
+                array('a' => 'a_value', 0 => '0_value'),
+                3,
+            ),
         );
     }
 
@@ -75,16 +86,8 @@ class Varien_Object_methods_unsetOldDataTest extends PHPUnit_Framework_TestCase
         );
         $result = $object->unsetOldData();
 
-        $this->assertSame(array('b' => 'a_value', 222 => '111_value'), $object->getData());
+        $this->assertSame(array(111 => '111_value'), $object->getData());
         $this->assertSame($result, $object);
-    }
-
-    public function testUnsetOldDataDoesntSpoilKeyParam()
-    {
-        $key = new SplFileInfo('key');
-        $object = new Zerkella_PhpMage_Varien_Object_Descendant_OldFieldsMap_Dynamic();
-        $object->unsetOldData($key);
-        $this->assertInstanceOf('SplFileInfo', $key);
     }
 
     public function testUnsetOldDataWorksFineWithEmptyOldKeys()
@@ -97,21 +100,31 @@ class Varien_Object_methods_unsetOldDataTest extends PHPUnit_Framework_TestCase
 
     public function testNoLinksForUnsetWithKey()
     {
-        $data = array('a' => 'a_value', 111 => '111_value');
+        $data = array('a' => 'a_value', 'e' => 'e_value');
         $object = new Zerkella_PhpMage_Varien_Object_Descendant_OldFieldsMap_Dynamic($data);
         $object->unsetOldData('a');
 
-        $this->assertSame(array(111 => '111_value', 'b' => 'a_value', 222 => '111_value'), $object->getData());
-        $this->assertSame(array('a' => 'a_value', 111 => '111_value'), $data);
+        $this->assertSame(array('e' => 'e_value', 'b' => 'a_value'), $object->getData());
+        $this->assertSame(array('a' => 'a_value', 'e' => 'e_value'), $data);
     }
 
     public function testNoLinksForUnsetWithoutKey()
     {
-        $data = array('a' => 'a_value', 111 => '111_value');
+        $data = array('a' => 'a_value', 'e' => 'e_value');
         $object = new Zerkella_PhpMage_Varien_Object_Descendant_OldFieldsMap_Dynamic($data);
         $object->unsetOldData();
 
-        $this->assertSame(array('b' => 'a_value', 222 => '111_value'), $object->getData());
-        $this->assertSame(array('a' => 'a_value', 111 => '111_value'), $data);
+        $this->assertSame(array('e' => 'e_value'), $object->getData());
+        $this->assertSame(array('a' => 'a_value', 'e' => 'e_value'), $data);
+    }
+
+    /**
+     * @expectedException PHPUnit_Framework_Error_Warning
+     */
+    public function testUnsetOldDataWithNonScalarParam()
+    {
+        $objParam = new SplFileInfo('a');
+        $object = new Varien_Object(array('a' => 'b'));
+        $object->unsetOldData($objParam);
     }
 }

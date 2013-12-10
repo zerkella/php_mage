@@ -29,7 +29,20 @@ class Varien_Object_methods__underscoreTest extends PHPUnit_Framework_TestCase
             array(1, '1'),
             array(true, '1'),
             array(null, ''),
-            array(new SplFileInfo('CamelizedObject'), 'camelized_object'),
+            array('CamelizedString', 'camelized_string'),
         );
+    }
+
+    /**
+     * @expectedException PHPUnit_Framework_Error_Warning
+     */
+    public function test_unserscoreWithNonScalarAttribute()
+    {
+        $object = new Varien_Object();
+        $method = new ReflectionMethod('Varien_Object', '_underscore');
+        $method->setAccessible(true);
+
+        $name = new SplFileInfo('ObjectName');
+        $result = $method->invoke($object, $name);
     }
 }

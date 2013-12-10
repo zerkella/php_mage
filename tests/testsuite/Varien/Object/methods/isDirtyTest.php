@@ -9,10 +9,19 @@ class Varien_Object_methods_isDirtyTest extends PHPUnit_Framework_TestCase
      */
     public function testIsDirty(array $dirty, array $params, $expected)
     {
-        $property = new ReflectionProperty('Varien_Object', '_dirty');
+        /**
+         * There is a bug in Magento 1 - _dirty is absent, so flagDirty is not usable. Fix the bug with custom
+         * descendant. Not so much sense, though, because 'dirty' functionality is not used anymore.
+         */
+        $refClass = new ReflectionClass('Varien_Object');
+        $classUsed = $refClass->hasProperty('_dirty') ?
+            'Varien_Object'
+            : 'Zerkella_PhpMage_Varien_Object_Descendant_BugFix_DirtyProperty';
+
+        $property = new ReflectionProperty($classUsed, '_dirty');
         $property->setAccessible(true);
 
-        $object = new Varien_Object();
+        $object = new $classUsed();
         $property->setValue($object, $dirty);
 
         $actual = call_user_func_array(array($object, 'isDirty'), $params);
@@ -80,17 +89,35 @@ class Varien_Object_methods_isDirtyTest extends PHPUnit_Framework_TestCase
                 array(5),
                 true,
             ),
-            'object field ' => array(
-                array('a' => 'b'),
-                array(new SplFileInfo('a')),
-                true,
-            ),
         );
     }
 
+    /**
+     * Test, that nothing bad happens, if return value is not checked at all
+     */
     public function testIsDirtyWithoutReturnValue()
     {
         $object = new Varien_Object();
         $object->isDirty();
+    }
+
+    /**
+     * @expectedException PHPUnit_Framework_Error_Warning
+     */
+    public function testIsDirtyWithNonScalarParam()
+    {
+        $refClass = new ReflectionClass('Varien_Object');
+        $classUsed = $refClass->hasProperty('_dirty') ?
+            'Varien_Object'
+            : 'Zerkella_PhpMage_Varien_Object_Descendant_BugFix_DirtyProperty';
+
+        $property = new ReflectionProperty($classUsed, '_dirty');
+        $property->setAccessible(true);
+
+        $objParam = new SplFileInfo('a');
+        $object = new $classUsed(array('a' => 'b'));
+        $property->setValue($object, array('a' => 'b'));
+
+        $result = $object->isDirty($objParam);
     }
 }

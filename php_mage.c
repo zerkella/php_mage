@@ -7,6 +7,7 @@ static const zend_function_entry mage_functions[] = {
 };
 
 PHP_MINIT_FUNCTION(mage);
+PHP_RINIT_FUNCTION(mage);
 
 //---Module declaration--------------
 zend_module_entry mage_module_entry = {
@@ -15,7 +16,7 @@ zend_module_entry mage_module_entry = {
 	NULL, /* Functions */
 	PHP_MINIT(mage),
 	NULL, /* MSHUTDOWN */
-	NULL, /* RINIT */
+	PHP_RINIT(mage),
 	NULL, /* RSHUTDOWN */
 	NULL, /* MINFO */
 	PHP_ZERK_MAGE_VERSION,
@@ -26,5 +27,11 @@ ZEND_GET_MODULE(mage)
 PHP_MINIT_FUNCTION(mage)
 {
 	mage_varien_object_minit(TSRMLS_C);
+	return SUCCESS;
+}
+
+PHP_RINIT_FUNCTION(mage)
+{
+	mage_varien_object_rinit(TSRMLS_C);
 	return SUCCESS;
 }
