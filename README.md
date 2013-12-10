@@ -5,8 +5,8 @@ This is a proof of a concept - implementation of Varien_Object from Magento 1 do
 The implementation is very close to original Varien_Object. There are minor differences, made for optimization purpose. However, they won't show up, if the class won't be used in some extremely ~~stupid~~ funny way. 
 
 Supported Magento versions:
-* Magento 1 CE from 1.6.0.0 and higher
-* Magento 1 EE from 1.11.0.0 and higher
+* Magento CE 1.6.0.0 and higher
+* Magento EE 1.11.0.0 and higher
 
 Tested PHP versions:
 * 5.3.14
@@ -31,3 +31,13 @@ There are tests for the whole implementation in `/tests` directory. They are wri
 	phpunit
 	
 The framework supports running tests against either php_mage or native Varien_Object. See `phpunit.xml.dist` for the option, how to configure that. 
+
+How to Install
+-----------
+
+Having the built extension, just put it into `php.ini` as any other extension.
+
+	extension=php_mage.dll
+
+The extension will add `Varien_Object` class to the list of internal PHP classes. Magento won't need to autoload this class, so that it won't load the original `Varien_Object` that is coming with the system.
+You can completely delete the `/lib/Varien/Object.php` file fron Magento in order to ensure, that it runs using php_mage extension only.
