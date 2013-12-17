@@ -17,10 +17,16 @@ Tested platforms:
 Used compilation tool:
 - VC 2008 Express
 
+Performance Comparison
+----------------------
+
+Results of the performance comparison are in [docs/PERFORMANCE.md](docs/PERFORMANCE.md)
+
 How to Build
 -----------
 
 See [BUILD.md](docs/BUILD.md)
+Already compiled php extension for Windows / PHP 5.3.14 is here: [php_mage.dll](https://dl.dropboxusercontent.com/u/17950262/various/php_mage.dll)
 
 How to Unit Test
 -----------
@@ -35,7 +41,7 @@ The framework supports running unit tests against either php_mage or native Vari
 How to Test Performance
 -----------
 
-See performance tests [README.md](tests/performance/README.md)
+See performance tests [README.md](tests/performance/README.md).
 
 How to Install
 -----------
@@ -45,4 +51,8 @@ Having the built extension, just put it into `php.ini` as any other extension.
 	extension=php_mage.dll
 
 The extension will add `Varien_Object` class to the list of internal PHP classes. Magento won't need to autoload this class, so that it won't load the original `Varien_Object` that is coming with the system.
-You can completely delete the `/lib/Varien/Object.php` file fron Magento in order to ensure, that it runs using php_mage extension only.
+You can completely delete the `/lib/Varien/Object.php` file from Magento in order to ensure, that it runs using php_mage extension only.
+
+_Andrey Tserkus_
+_Software Engineer, Magento / eBay_
+_Dec, 2013_
