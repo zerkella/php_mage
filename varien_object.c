@@ -1699,7 +1699,7 @@ PHP_METHOD(Varien_Object, unsetOldData)
 {
 	/* ---PHP---
     if (is_null($key)) {
-        foreach ($this->_syncFieldsMap as $key => $newFieldName) {
+        foreach ($this->_oldFieldsMap as $key => $newFieldName) {
             unset($this->_data[$key]);
         }
     } else {
@@ -1708,7 +1708,8 @@ PHP_METHOD(Varien_Object, unsetOldData)
     return $this;
 	*/
 
-	/* Note: bug from the PHP code is fixed in this method - instead of _syncFieldsMap, the _oldFieldsMap is used. */
+	/* Note: in Magento CE 1.8.1.0 a bug fixed in this code - instead of _syncFieldsMap, the _oldFieldsMap is used. 
+	   This implementation is same as Magento CE 1.8.1.0. */
 	zval *obj_zval = getThis();
 	zend_class_entry *obj_ce = Z_OBJCE_P(obj_zval);
 	int num_args = ZEND_NUM_ARGS();
@@ -1719,8 +1720,8 @@ PHP_METHOD(Varien_Object, unsetOldData)
 	uint key_str_len;
 	zend_bool is_dispose_key_str;
 	zval **data;
-	zval **syncFieldsMap;
-	HashTable *ht_syncFieldsMap;
+	zval **oldFieldsMap;
+	HashTable *ht_oldFieldsMap;
 	int current_key_type;
 	ulong current_index;
 	char *current_key;
@@ -1744,15 +1745,15 @@ PHP_METHOD(Varien_Object, unsetOldData)
 	ht_data = Z_ARRVAL_PP(data);
 
 	if ((key == NULL) && (zend_hash_num_elements(ht_data))) {
-		VO_EXTRACT_PROPERTY(_syncFieldsMap, obj_zval, &syncFieldsMap);
-		if (!syncFieldsMap || !(*syncFieldsMap) || (Z_TYPE_PP(syncFieldsMap) != IS_ARRAY)) {
+		VO_EXTRACT_PROPERTY(_oldFieldsMap, obj_zval, &oldFieldsMap);
+		if (!oldFieldsMap || !(*oldFieldsMap) || (Z_TYPE_PP(oldFieldsMap) != IS_ARRAY)) {
 			php_error_docref(NULL TSRMLS_CC, E_ERROR, "_oldFieldsMap property must be array");
 		}
-		ht_syncFieldsMap = Z_ARRVAL_PP(syncFieldsMap);
+		ht_oldFieldsMap = Z_ARRVAL_PP(oldFieldsMap);
 
-		if (zend_hash_num_elements(ht_syncFieldsMap)) {
-			for (zend_hash_internal_pointer_reset(ht_syncFieldsMap); zend_hash_has_more_elements(ht_syncFieldsMap) == SUCCESS; zend_hash_move_forward(ht_syncFieldsMap)) {
-				current_key_type = zend_hash_get_current_key_ex(ht_syncFieldsMap, &current_key, &current_key_len, &current_index, FALSE, NULL);
+		if (zend_hash_num_elements(ht_oldFieldsMap)) {
+			for (zend_hash_internal_pointer_reset(ht_oldFieldsMap); zend_hash_has_more_elements(ht_oldFieldsMap) == SUCCESS; zend_hash_move_forward(ht_oldFieldsMap)) {
+				current_key_type = zend_hash_get_current_key_ex(ht_oldFieldsMap, &current_key, &current_key_len, &current_index, FALSE, NULL);
 
 				if (current_key_type == HASH_KEY_IS_LONG) {
 					zend_hash_index_del(ht_data, current_index);

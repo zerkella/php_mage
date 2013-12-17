@@ -1,6 +1,27 @@
 <?php
 class Varien_Object_methods_unsetOldDataTest extends PHPUnit_Framework_TestCase
 {
+
+    /**
+     * Return whether we're testing Varien_Object, where bug in unsetOldData() is fixed
+     *
+     * @return bool
+     */
+    protected static function _isFixedBugWithOldDataNullKey()
+    {
+        if (!defined('TESTS_MAGENTO_PATH')) {
+            return true; // php_mage extension has non-buggy functionality
+        }
+
+        $reflectionMethod = new ReflectionMethod('Varien_Object', 'unsetOldData');
+        $sourceClass = file($reflectionMethod->getFileName());
+        $sourceMethod = array_slice($sourceClass, $reflectionMethod->getStartLine(),
+            $reflectionMethod->getEndLine() - $reflectionMethod->getStartLine());
+        $source = implode("\n", $sourceMethod);
+
+        return strpos($source, '$this->_oldFieldsMap') !== false;
+    }
+
     /**
      * @param array $initialData
      * @param string|null $key
@@ -23,7 +44,8 @@ class Varien_Object_methods_unsetOldDataTest extends PHPUnit_Framework_TestCase
             'null key' => array(
                 array('a' => 'a_value', 'e' => 'e_value'),
                 null,
-                array('e' => 'e_value'),
+                self::_isFixedBugWithOldDataNullKey() ? array('e' => 'e_value', 'b' => 'a_value')
+                    : array('e' => 'e_value'),
             ),
             'key' => array(
                 array('a' => 'a_value', 'e' => 'e_value'),
@@ -86,7 +108,9 @@ class Varien_Object_methods_unsetOldDataTest extends PHPUnit_Framework_TestCase
         );
         $result = $object->unsetOldData();
 
-        $this->assertSame(array(111 => '111_value'), $object->getData());
+        $expected = self::_isFixedBugWithOldDataNullKey() ? array(111 => '111_value', 'b' => 'a_value')
+            : array(111 => '111_value');
+        $this->assertSame($expected, $object->getData());
         $this->assertSame($result, $object);
     }
 
@@ -114,7 +138,10 @@ class Varien_Object_methods_unsetOldDataTest extends PHPUnit_Framework_TestCase
         $object = new Zerkella_PhpMage_Varien_Object_Descendant_OldFieldsMap_Dynamic($data);
         $object->unsetOldData();
 
-        $this->assertSame(array('e' => 'e_value'), $object->getData());
+        $expected = self::_isFixedBugWithOldDataNullKey() ? array('e' => 'e_value', 'b' => 'a_value')
+            : array('e' => 'e_value');
+        $this->assertSame($expected, $object->getData());
+
         $this->assertSame(array('a' => 'a_value', 'e' => 'e_value'), $data);
     }
 
