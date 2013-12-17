@@ -32,6 +32,11 @@ There are unit tests for the whole implementation in `/tests` directory. They ar
 	
 The framework supports running unit tests against either php_mage or native Varien_Object. See `phpunit.xml.dist` for the option, how to configure that. 
 
+How to Test Performance
+-----------
+
+See performance tests [README.md](tests/performance/README.md)
+
 How to Install
 -----------
 

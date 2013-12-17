@@ -1,0 +1,10 @@
+<?php
+/**
+ * Config for measuring performance of an already installed Magento
+  */
+return array(
+    'host' => 'localhost',
+    'path' => '/',
+    'scenario_users' => 10,
+    'scenario_loops' => 10,
+);
