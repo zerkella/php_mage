@@ -22,15 +22,15 @@ How to Build
 
 See [BUILD.md](docs/BUILD.md)
 
-How to Test
+How to Unit Test
 -----------
 
-There are tests for the whole implementation in `/tests` directory. They are written in PHP, using PHPUnit. Running is pretty straightforward:
+There are unit tests for the whole implementation in `/tests` directory. They are written in PHP, using PHPUnit. Running is pretty straightforward:
 
-	cd tests
+	cd tests/unit
 	phpunit
 	
-The framework supports running tests against either php_mage or native Varien_Object. See `phpunit.xml.dist` for the option, how to configure that. 
+The framework supports running unit tests against either php_mage or native Varien_Object. See `phpunit.xml.dist` for the option, how to configure that. 
 
 How to Install
 -----------
