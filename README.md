@@ -10,12 +10,15 @@ Supported Magento versions:
 
 Tested PHP versions:
 * 5.3.14
+* 5.6.5
  
 Tested platforms:
 * Windows 7 64-bit
+* Debian 7.8
 
 Used compilation tool:
 - VC 2008 Express
+- GCC 4.7.2
 
 Performance Comparison
 ----------------------
@@ -56,3 +59,7 @@ You can completely delete the `/lib/Varien/Object.php` file from Magento in orde
 _Andrey Tserkus_
 _Software Engineer, Magento / eBay_
 _Dec, 2013_
+
+_Robert Eisele_
+_Software Engineer, www.xarg.org_
+_Feb, 2015_
