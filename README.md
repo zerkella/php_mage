@@ -56,10 +56,12 @@ Having the built extension, just put it into `php.ini` as any other extension.
 The extension will add `Varien_Object` class to the list of internal PHP classes. Magento won't need to autoload this class, so that it won't load the original `Varien_Object` that is coming with the system.
 You can completely delete the `/lib/Varien/Object.php` file from Magento in order to ensure, that it runs using php_mage extension only.
 
+Original author: 
 _Andrey Tserkus_
 _Software Engineer, Magento / eBay_
 _Dec, 2013_
 
+Compatibility for PHP 5.6 on Linux:
 _Robert Eisele_
 _Software Engineer, www.xarg.org_
 _Feb, 2015_
